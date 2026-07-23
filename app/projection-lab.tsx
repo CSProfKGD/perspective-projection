@@ -60,6 +60,9 @@ type SceneHandles = {
   projectionLabel: CSS2DObject;
   worldLabel: CSS2DObject;
   allLabels: THREE.Group;
+  labelLeaders: THREE.Group;
+  worldLabelLeader: Line2;
+  projectionLabelLeader: Line2;
   resize: () => void;
   render: () => void;
   resetView: () => void;
@@ -92,7 +95,12 @@ const PLANE_HEIGHT = 5.4;
 const AXIS_LINE_WIDTH = 1.28;
 const IMAGE_FRAME_LINE_WIDTH = 1.32;
 const IMAGE_GUIDE_LINE_WIDTH = 0.88;
-const AXIS_ARROWHEAD_SCALE = 1.12;
+const AXIS_ARROWHEAD_SCALE = 1.05;
+const PLANE_NORMAL_ARROWHEAD_SCALE = 1.12;
+const AXIS_ARROWHEAD_LENGTH = 0.34 * AXIS_ARROWHEAD_SCALE;
+const AXIS_ARROWHEAD_WIDTH = 0.16 * AXIS_ARROWHEAD_SCALE;
+const AXIS_ARROWHEAD_SHAFT_GAP = 0.025;
+const LABEL_LEADER_LINE_WIDTH = 1;
 
 function format(value: number) {
   const normalized = Math.abs(value) < 0.005 ? 0 : value;
@@ -117,6 +125,35 @@ function createLine(
   const line = new Line2(geometry, material);
   line.computeLineDistances();
   return line;
+}
+
+function createAxisArrow(
+  start: THREE.Vector3,
+  tip: THREE.Vector3,
+  lineMaterial: LineMaterial,
+  headGeometry: THREE.ConeGeometry,
+  headMaterial: THREE.MeshBasicMaterial,
+) {
+  const direction = tip.clone().sub(start).normalize();
+  const shaftEnd = tip
+    .clone()
+    .addScaledVector(
+      direction,
+      -AXIS_ARROWHEAD_LENGTH - AXIS_ARROWHEAD_SHAFT_GAP,
+    );
+  const axis = new THREE.Group();
+  axis.add(createLine(start, shaftEnd, lineMaterial));
+
+  const head = new THREE.Mesh(headGeometry, headMaterial);
+  head.position
+    .copy(tip)
+    .addScaledVector(direction, -AXIS_ARROWHEAD_LENGTH / 2);
+  head.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    direction,
+  );
+  axis.add(head);
+  return axis;
 }
 
 function createProjectionLine(width: number, opacity: number) {
@@ -239,6 +276,14 @@ export function ProjectionLab() {
       opacity: 0.34,
       worldUnits: false,
     });
+    const labelLeaderMaterial = new LineMaterial({
+      color: 0xeceee9,
+      linewidth: LABEL_LEADER_LINE_WIDTH,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      worldUnits: false,
+    });
 
     const ambient = new THREE.HemisphereLight(0xdfe8e1, 0x111713, 1.75);
     scene.add(ambient);
@@ -321,8 +366,8 @@ export function ProjectionLab() {
       new THREE.Vector3(0, 0, 0),
       1.05,
       0x72b83c,
-      0.22 * AXIS_ARROWHEAD_SCALE,
-      0.11 * AXIS_ARROWHEAD_SCALE,
+      0.22 * PLANE_NORMAL_ARROWHEAD_SCALE,
+      0.11 * PLANE_NORMAL_ARROWHEAD_SCALE,
     );
     const planeNormalLine = planeNormal.line.material as THREE.LineBasicMaterial;
     planeNormalLine.transparent = true;
@@ -333,34 +378,40 @@ export function ProjectionLab() {
     imageAxes.add(planeNormal);
     scene.add(imageAxes);
 
-    const zAxisHeadLength = 0.34 * AXIS_ARROWHEAD_SCALE;
-    const zAxisHeadWidth = 0.16 * AXIS_ARROWHEAD_SCALE;
-    const zAxisTip = 5.6;
-    const zAxis = new THREE.Group();
-    zAxis.add(
-      createLine(
-        new THREE.Vector3(0, 0, -11),
-        new THREE.Vector3(0, 0, zAxisTip - zAxisHeadLength),
-        axisMaterial,
-      ),
+    const axisHeadGeometry = new THREE.ConeGeometry(
+      AXIS_ARROWHEAD_WIDTH / 2,
+      AXIS_ARROWHEAD_LENGTH,
+      24,
     );
-    const zAxisCone = new THREE.Mesh(
-      new THREE.ConeGeometry(zAxisHeadWidth / 2, zAxisHeadLength, 24),
-      new THREE.MeshBasicMaterial({
-        color: 0xeceee9,
-        transparent: true,
-        opacity: 0.34,
-      }),
-    );
-    zAxisCone.position.set(0, 0, zAxisTip - zAxisHeadLength / 2);
-    zAxisCone.rotation.x = Math.PI / 2;
-    zAxis.add(zAxisCone);
+    const axisHeadMaterial = new THREE.MeshBasicMaterial({
+      color: 0xeceee9,
+      transparent: true,
+      opacity: 0.34,
+    });
 
     const axes = new THREE.Group();
     axes.add(
-      createLine(new THREE.Vector3(-4.4, 0, 0), new THREE.Vector3(4.4, 0, 0), axisMaterial),
-      createLine(new THREE.Vector3(0, -3.4, 0), new THREE.Vector3(0, 3.4, 0), axisMaterial),
-      zAxis,
+      createAxisArrow(
+        new THREE.Vector3(-4.4, 0, 0),
+        new THREE.Vector3(4.4, 0, 0),
+        axisMaterial,
+        axisHeadGeometry,
+        axisHeadMaterial,
+      ),
+      createAxisArrow(
+        new THREE.Vector3(0, -3.4, 0),
+        new THREE.Vector3(0, 3.4, 0),
+        axisMaterial,
+        axisHeadGeometry,
+        axisHeadMaterial,
+      ),
+      createAxisArrow(
+        new THREE.Vector3(0, 0, -11),
+        new THREE.Vector3(0, 0, 5.6),
+        axisMaterial,
+        axisHeadGeometry,
+        axisHeadMaterial,
+      ),
     );
     scene.add(axes);
 
@@ -472,6 +523,20 @@ export function ProjectionLab() {
     allLabels.add(projectionLabel);
     scene.add(allLabels);
 
+    const labelLeaders = new THREE.Group();
+    const worldLabelLeader = createLine(
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      labelLeaderMaterial,
+    );
+    const projectionLabelLeader = createLine(
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      labelLeaderMaterial,
+    );
+    labelLeaders.add(worldLabelLeader, projectionLabelLeader);
+    scene.add(labelLeaders);
+
     const planeTooltip = createLabel(
       String.raw`\text{Drag to change focal length}`,
       "plane-tooltip",
@@ -503,6 +568,7 @@ export function ProjectionLab() {
       structureMaterial.resolution.set(width, height);
       axisMaterial.resolution.set(width, height);
       imageGuideMaterial.resolution.set(width, height);
+      labelLeaderMaterial.resolution.set(width, height);
     };
 
     const defaultCamera = new THREE.Vector3(9.5, 6.2, 11.5);
@@ -560,6 +626,7 @@ export function ProjectionLab() {
       if (!axisMaterials.includes(material)) axisMaterials.push(material);
     });
     const rayMaterials = collectMaterials(sightline);
+    const labelLeaderMaterials = collectMaterials(labelLeaders);
     const axisLabelElements = collectLabelElements(axes);
     const labelElements = collectLabelElements(allLabels);
 
@@ -637,6 +704,10 @@ export function ProjectionLab() {
       );
       applyMaterialDissolve(axisMaterials, dissolveState.axes.current);
       applyMaterialDissolve(rayMaterials, dissolveState.sightline.current);
+      applyMaterialDissolve(
+        labelLeaderMaterials,
+        dissolveState.labels.current,
+      );
       axisLabelElements.forEach((element) => {
         element.style.opacity = String(0.76 * dissolveState.axes.current);
       });
@@ -915,6 +986,9 @@ export function ProjectionLab() {
       projectionLabel,
       worldLabel,
       allLabels,
+      labelLeaders,
+      worldLabelLeader,
+      projectionLabelLeader,
       resize,
       render,
       resetView,
@@ -972,28 +1046,54 @@ export function ProjectionLab() {
       line.computeLineDistances();
     });
 
-    handles.worldLabel.position.set(
+    const worldLabelPosition = new THREE.Vector3(
       worldPoint.x,
       worldPoint.y + 0.72,
       worldPoint.z,
     );
-    handles.projectionLabel.position.set(p.x, p.y + 0.68, p.z);
+    const projectionLabelPosition = new THREE.Vector3(
+      p.x,
+      p.y + 0.68,
+      p.z,
+    );
+    handles.worldLabel.position.copy(worldLabelPosition);
+    handles.projectionLabel.position.copy(projectionLabelPosition);
+    (
+      handles.worldLabelLeader.geometry as LineGeometry
+    ).setPositions([
+      worldPoint.x,
+      worldPoint.y,
+      worldPoint.z,
+      ...worldLabelPosition.toArray(),
+    ]);
+    handles.worldLabelLeader.computeLineDistances();
+    (
+      handles.projectionLabelLeader.geometry as LineGeometry
+    ).setPositions([
+      p.x,
+      p.y,
+      p.z,
+      ...projectionLabelPosition.toArray(),
+    ]);
+    handles.projectionLabelLeader.computeLineDistances();
     handles.planeTooltip.position.z = focalLength + 0.03;
     handles.planeValue.position.z = focalLength + 0.03;
     handles.planeValue.element.innerHTML = renderMath(
       `f=${format(focalLength)}`,
     );
 
-    handles.worldLabel.element.innerHTML = renderMath(
-      String.raw`\mathbf{P}=\left(X,\,Y,\,Z\right)=\left(${format(
-        worldPoint.x,
-      )},\,${format(worldPoint.y)},\,${format(worldPoint.z)}\right)`,
-    );
-    handles.projectionLabel.element.innerHTML = renderMath(
-      String.raw`\mathbf{p}=\left(\frac{fX}{Z},\,\frac{fY}{Z},\,f\right)=\left(${format(
-        p.x,
-      )},\,${format(p.y)},\,${format(p.z)}\right)`,
-    );
+    handles.worldLabel.element.innerHTML = `${renderMath(
+      String.raw`\mathbf{P}=\left(X,\,Y,\,Z\right)=`,
+    )}<span class="coordinate-values">${renderMath(
+      String.raw`\left(${format(worldPoint.x)},\,${format(
+        worldPoint.y,
+      )},\,${format(worldPoint.z)}\right)`,
+    )}</span>`;
+    handles.projectionLabel.element.innerHTML = `${renderMath(
+      String.raw`\mathbf{p}=\left(\frac{fX}{Z},\,\frac{fY}{Z},\,f\right)=`,
+    )}<span class="coordinate-values">${renderMath(
+      String.raw`\left(${format(p.x)},\,${format(p.y)},\,${format(p.z)}\right)`,
+    )}</span>`;
 
     handles.projectedPoint.visible = true;
   }, [
@@ -1098,6 +1198,11 @@ export function ProjectionLab() {
 
     updateGroupMaterials(handles.axes, structure, axisOpacity);
     updateGroupMaterials(handles.imageAxes, structure, axisOpacity);
+    updateGroupMaterials(
+      handles.labelLeaders,
+      structure,
+      isLight ? 0.24 : 0.22,
+    );
     updateGroupMaterials(
       handles.planeNormal,
       green,

@@ -263,6 +263,10 @@ h1 {
 }
 
 .scene-label.point {
+  color: var(--text);
+}
+
+.scene-label.point .coordinate-values {
   color: var(--yellow);
 }
 
