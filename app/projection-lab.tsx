@@ -1413,20 +1413,20 @@ export function ProjectionLab() {
     <main className="lab-shell" data-theme={theme}>
       <header className="lab-header">
         <div className="lab-title-block">
-          <p className="eyebrow">Perspective projection</p>
-          <h1>One point. One ray. One image.</h1>
+          <h1>Perspective projection</h1>
+          <p className="lab-subtitle">Interactive 3D visualization</p>
         </div>
         <div className="header-actions">
-          <button className="text-button" type="button" onClick={reset}>
+          <button className="text-button reset-button" type="button" onClick={reset}>
             Reset view
           </button>
           <button
-            className="icon-button"
+            className="text-button theme-mode-button"
             type="button"
             aria-label={`Use ${theme === "dark" ? "light" : "dark"} theme`}
             onClick={toggleTheme}
           >
-            <span aria-hidden="true">{theme === "dark" ? "☼" : "◐"}</span>
+            {theme === "dark" ? "Light mode" : "Dark mode"}
           </button>
         </div>
       </header>
