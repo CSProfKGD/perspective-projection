@@ -251,16 +251,6 @@ h1 {
   font-style: italic;
 }
 
-.scene-coordinate {
-  display: block;
-  margin-top: 3px;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
 .scene-label.plane-tooltip {
   padding: 6px 9px;
   border-radius: 8px;

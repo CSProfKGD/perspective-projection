@@ -18,7 +18,7 @@ The scene contains:
 - The projected point, \(\mathbf{p}=(x,y,f)\), on the physical image plane.
 - One continuous projection line spanning \(\mathbf{P}\), \(o\), and \(\mathbf{p}\).
 - A visible focal-length interval from the camera centre to the image plane.
-- Concise mathematical labels and temporary contextual equations and coordinate values during manipulation.
+- Concise mathematical point labels that continuously show the live world and projected coordinates, plus temporary contextual equations during manipulation.
 - A restrained blue spherical scene object whose surface contains \(\mathbf{P}\). The object constrains point manipulation but does not otherwise participate in the projection calculation.
 
 The initial view shows the complete construction from an oblique angle so that the world point, camera centre, image plane, optical axis, and image inversion are all visible. The 3D scene remains the dominant surface.
@@ -104,7 +104,7 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 - Use blue for the contextual scene surface near \(\mathbf{P}\). Keep its lighting soft, moderately rough, and subordinate to the projection construction.
 - Render the physical image plane as low-opacity dark glass with faint cool-neutral edges and centre guides rather than a large solid region.
 - Keep the focal-length marker and interval visually tied to \(f\) without turning it into a large control overlay.
-- Use one compact translucent control pill for visibility toggles. Keep equations, focal-length values, and coordinates contextual and temporary rather than placing them in permanent cards.
+- Use one compact translucent control pill for visibility toggles. Keep the live point coordinates attached to their geometric labels; keep equations and focal-length values contextual and temporary rather than placing them in permanent cards.
 - Typeset variables in standard mathematical notation, including italic variables and bold vector names where explanatory text distinguishes vectors.
 - Render mathematical symbols and expressions from LaTeX with KaTeX rather than assembling notation from Unicode glyphs.
 - Keep labels readable against surfaces and prevent avoidable overlap while the observer camera moves.

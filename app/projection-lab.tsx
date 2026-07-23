@@ -858,21 +858,16 @@ export function ProjectionLab() {
       `f=${format(focalLength)}`,
     );
 
-    const showCoordinates = projectionFeedback !== null;
-    const coordinateMarkup = (
-      values: [number, number, number],
-    ) =>
-      `<span class="scene-coordinate">(${values
-        .map((value) => format(value))
-        .join(", ")})</span>`;
-    handles.worldLabel.element.innerHTML =
-      renderMath(String.raw`\mathbf{P}=(X,Y,Z)`) +
-      (showCoordinates
-        ? coordinateMarkup([worldPoint.x, worldPoint.y, worldPoint.z])
-        : "");
-    handles.projectionLabel.element.innerHTML =
-      renderMath(String.raw`\mathbf{p}=(x,y,f)`) +
-      (showCoordinates ? coordinateMarkup([p.x, p.y, p.z]) : "");
+    handles.worldLabel.element.innerHTML = renderMath(
+      String.raw`\mathbf{P}=\left(${format(worldPoint.x)},\,${format(
+        worldPoint.y,
+      )},\,${format(worldPoint.z)}\right)`,
+    );
+    handles.projectionLabel.element.innerHTML = renderMath(
+      String.raw`\mathbf{p}=\left(${format(p.x)},\,${format(p.y)},\,${format(
+        p.z,
+      )}\right)`,
+    );
 
     handles.projectedPoint.visible = true;
     handles.sightline.visible = visibility.sightline;
