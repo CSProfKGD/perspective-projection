@@ -112,7 +112,7 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 - When Axes, Labels, or Ray visibility is toggled, dissolve the affected scene elements smoothly in or out rather than switching them abruptly.
 - Respect reduced-motion preferences by making nonessential transitions effectively immediate.
 
-The light theme should preserve the same semantic colour roles and adequate contrast rather than reinterpret the scene with a new palette.
+The light theme should preserve the same semantic colour roles and use a presentation-led, Apple Keynote-like finish: a warm near-white canvas, crisp graphite structure and notation, restrained translucent white controls, a clear botanical-green projection line, a refined medium-blue object, and darker amber notation with gold markers. Every axis and plane guide must remain legible against both the canvas and translucent image plane.
 
 ## Interaction Requirements
 

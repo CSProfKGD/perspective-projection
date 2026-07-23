@@ -45,9 +45,13 @@ type SceneHandles = {
   imagePlaneHit: THREE.Mesh;
   imagePlaneOutline: THREE.LineSegments;
   imageAxes: THREE.Group;
+  planeNormal: THREE.ArrowHelper;
   axes: THREE.Group;
   surface: THREE.Mesh;
   sightline: THREE.Group;
+  ambient: THREE.HemisphereLight;
+  key: THREE.DirectionalLight;
+  rim: THREE.DirectionalLight;
   planeTooltip: CSS2DObject;
   planeValue: CSS2DObject;
   projectionLabel: CSS2DObject;
@@ -184,6 +188,8 @@ export function ProjectionLab() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.06;
     mount.appendChild(renderer.domElement);
 
     const labelRenderer = new CSS2DRenderer();
@@ -801,9 +807,13 @@ export function ProjectionLab() {
       imagePlaneHit,
       imagePlaneOutline,
       imageAxes,
+      planeNormal,
       axes,
       surface,
       sightline,
+      ambient,
+      key,
+      rim,
       planeTooltip,
       planeValue,
       projectionLabel,
@@ -931,7 +941,18 @@ export function ProjectionLab() {
 
     const outline =
       handles.imagePlaneOutline.material as THREE.LineBasicMaterial;
-    outline.opacity = planeActive ? 0.72 : planeEngaged ? 0.52 : 0.3;
+    outline.opacity = planeActive
+      ? isLight
+        ? 0.86
+        : 0.72
+      : planeEngaged
+        ? isLight
+          ? 0.68
+          : 0.52
+        : isLight
+          ? 0.5
+          : 0.3;
+    outline.userData.dissolveBaseOpacity = outline.opacity;
     const rayLines = handles.sightline.children as Line2[];
     (rayLines[0].material as LineMaterial).userData.dissolveBaseOpacity =
       planeActive ? 0.18 : 0.12;
@@ -964,9 +985,62 @@ export function ProjectionLab() {
     const handles = sceneRef.current;
     if (!handles) return;
     const isLight = theme === "light";
-    const structure = isLight ? 0x252a26 : 0xeceee9;
+    const structure = isLight ? 0x4b5158 : 0xeceee9;
+    const green = isLight ? 0x4f8b38 : 0x78b84b;
+    const marker = isLight ? 0xd29418 : 0xf2c75b;
+    const surfaceBlue = isLight ? 0x3d82b3 : 0x397fb5;
+    const axisOpacity = isLight ? 0.58 : 0.34;
+
+    const updateGroupMaterials = (
+      group: THREE.Object3D,
+      color: number,
+      opacity: number,
+    ) => {
+      group.traverse((object) => {
+        const material = (object as THREE.Mesh).material;
+        if (!material) return;
+        const entries = Array.isArray(material) ? material : [material];
+        entries.forEach((entry) => {
+          if ("color" in entry) {
+            (entry as THREE.Material & { color: THREE.Color }).color.setHex(
+              color,
+            );
+          }
+          entry.transparent = true;
+          entry.userData.dissolveBaseOpacity = opacity;
+        });
+      });
+    };
+
+    updateGroupMaterials(handles.axes, structure, axisOpacity);
+    updateGroupMaterials(handles.imageAxes, structure, axisOpacity);
+    updateGroupMaterials(
+      handles.planeNormal,
+      green,
+      isLight ? 0.78 : 0.58,
+    );
+
+    handles.sightline.children.forEach((child) => {
+      ((child as Line2).material as LineMaterial).color.setHex(green);
+    });
+
     const plane = handles.imagePlane.material as THREE.MeshPhysicalMaterial;
-    plane.color.setHex(isLight ? 0x64706a : 0x303a3a);
+    plane.color.setHex(isLight ? 0x8f9da4 : 0x303a3a);
+
+    const surface = handles.surface.material as THREE.MeshPhysicalMaterial;
+    surface.color.setHex(surfaceBlue);
+    surface.opacity = isLight ? 0.86 : 0.76;
+    surface.sheenColor.setHex(isLight ? 0xb7d3e5 : 0x83a9c5);
+
+    [
+      handles.worldPoint.material,
+      handles.projectedPoint.material,
+    ].forEach((material) => {
+      const pointMaterial = material as THREE.MeshPhysicalMaterial;
+      pointMaterial.color.setHex(marker);
+      pointMaterial.emissive.setHex(isLight ? 0x2f1d00 : 0x3d2a08);
+      pointMaterial.emissiveIntensity = isLight ? 0.12 : 0.4;
+    });
 
     const originMaterial = handles.origin.material as THREE.MeshBasicMaterial;
     originMaterial.color.setHex(isLight ? 0x1b1f1c : 0xf5f5f0);
@@ -974,6 +1048,15 @@ export function ProjectionLab() {
     (
       handles.imagePlaneOutline.material as THREE.LineBasicMaterial
     ).color.setHex(structure);
+
+    handles.ambient.color.setHex(isLight ? 0xffffff : 0xdfe8e1);
+    handles.ambient.groundColor.setHex(isLight ? 0xcbd0d3 : 0x111713);
+    handles.ambient.intensity = isLight ? 2.15 : 1.75;
+    handles.key.color.setHex(isLight ? 0xfffbf2 : 0xfff8df);
+    handles.key.intensity = isLight ? 2.35 : 2.1;
+    handles.rim.color.setHex(isLight ? 0xa9d0e9 : 0x75a9d6);
+    handles.rim.intensity = isLight ? 0.88 : 0.72;
+    handles.renderer.toneMappingExposure = isLight ? 1.02 : 1.06;
   }, [theme]);
 
   useEffect(
