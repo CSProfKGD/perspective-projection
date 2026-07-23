@@ -267,6 +267,7 @@ h1 {
 }
 
 .scene-label.point .coordinate-values {
+  margin-left: 0.2778em;
   color: var(--yellow);
 }
 
