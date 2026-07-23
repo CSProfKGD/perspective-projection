@@ -50,6 +50,7 @@ type SceneHandles = {
   planeNormal: THREE.ArrowHelper;
   axes: THREE.Group;
   surface: THREE.Mesh;
+  objectHalo: THREE.Mesh;
   sightline: THREE.Group;
   ambient: THREE.HemisphereLight;
   key: THREE.DirectionalLight;
@@ -64,6 +65,7 @@ type SceneHandles = {
   resetView: () => void;
   resetInteractionSession: () => void;
   setVisibilityTargets: (visibility: VisibilityState) => void;
+  setObjectActive: (active: boolean, dragging?: boolean) => void;
   setPointActive: (active: boolean) => void;
 };
 
@@ -386,6 +388,20 @@ export function ProjectionLab() {
     );
     scene.add(surface);
 
+    const objectHalo = new THREE.Mesh(
+      new THREE.SphereGeometry(OBJECT_RADIUS * 1.075, 48, 48),
+      new THREE.MeshBasicMaterial({
+        color: 0x5ea2d4,
+        transparent: true,
+        opacity: 0.11,
+        depthWrite: false,
+        side: THREE.BackSide,
+      }),
+    );
+    objectHalo.position.copy(surface.position);
+    objectHalo.visible = false;
+    scene.add(objectHalo);
+
     const sightline = new THREE.Group();
     const sightlineGlow = createProjectionLine(7.5, 0.12);
     const sightlineCore = createProjectionLine(2.7, 0.98);
@@ -538,6 +554,13 @@ export function ProjectionLab() {
         active ? 0.18 : 0.12;
     };
 
+    const setObjectActive = (active: boolean, dragging = false) => {
+      objectHalo.visible = active;
+      (objectHalo.material as THREE.MeshBasicMaterial).opacity = dragging
+        ? 0.18
+        : 0.11;
+    };
+
     let frame = 0;
     const render = () => {
       const now = performance.now();
@@ -588,6 +611,7 @@ export function ProjectionLab() {
         projectedPointReferenceDistance;
       projectedPointMesh.scale.setScalar(projectedPointScale);
       pointHalo.position.copy(worldPointMesh.position);
+      objectHalo.position.copy(surface.position);
       controls.update();
       renderer.render(scene, camera);
       labelRenderer.render(scene, camera);
@@ -669,6 +693,7 @@ export function ProjectionLab() {
 
       controls.enabled = false;
       setPointActive(dragMode === "point");
+      setObjectActive(dragMode === "object", dragMode === "object");
       renderer.domElement.classList.add("is-dragging");
       renderer.domElement.setPointerCapture(event.pointerId);
     };
@@ -698,6 +723,7 @@ export function ProjectionLab() {
           clearTooltipTimer();
           setPlaneTooltipVisible(false);
         }
+        setObjectActive(overObject && !overPoint && !overPlane);
         return;
       }
 
@@ -765,6 +791,7 @@ export function ProjectionLab() {
       dragMode = null;
       controls.enabled = true;
       setPointActive(false);
+      setObjectActive(false);
       if (completedMode === "plane") {
         planeHasBeenDragged = true;
         setPlaneDragging(false);
@@ -784,6 +811,16 @@ export function ProjectionLab() {
       setPlaneDragging(false);
       setPlaneTooltipVisible(false);
       setPlaneValueVisible(false);
+      setObjectActive(false);
+    };
+
+    const pointerLeave = () => {
+      if (dragMode) return;
+      setPointActive(false);
+      setObjectActive(false);
+      clearTooltipTimer();
+      setPlaneHovered(false);
+      setPlaneTooltipVisible(false);
     };
 
     renderer.domElement.addEventListener("pointerdown", pointerDown);
@@ -791,6 +828,7 @@ export function ProjectionLab() {
     renderer.domElement.addEventListener("pointerup", finishDrag);
     renderer.domElement.addEventListener("pointercancel", finishDrag);
     renderer.domElement.addEventListener("lostpointercapture", finishDrag);
+    renderer.domElement.addEventListener("pointerleave", pointerLeave);
     window.addEventListener("resize", resize);
 
     resize();
@@ -811,6 +849,7 @@ export function ProjectionLab() {
       planeNormal,
       axes,
       surface,
+      objectHalo,
       sightline,
       ambient,
       key,
@@ -825,6 +864,7 @@ export function ProjectionLab() {
       resetView,
       resetInteractionSession,
       setVisibilityTargets,
+      setObjectActive,
       setPointActive,
     };
 
@@ -838,6 +878,7 @@ export function ProjectionLab() {
       renderer.domElement.removeEventListener("pointerup", finishDrag);
       renderer.domElement.removeEventListener("pointercancel", finishDrag);
       renderer.domElement.removeEventListener("lostpointercapture", finishDrag);
+      renderer.domElement.removeEventListener("pointerleave", pointerLeave);
       controls.dispose();
       renderer.dispose();
       labelRenderer.domElement.remove();
@@ -1018,6 +1059,9 @@ export function ProjectionLab() {
     surface.color.setHex(surfaceBlue);
     surface.opacity = isLight ? 0.86 : 0.76;
     surface.sheenColor.setHex(isLight ? 0xb7d3e5 : 0x83a9c5);
+    (
+      handles.objectHalo.material as THREE.MeshBasicMaterial
+    ).color.setHex(isLight ? 0x2f78aa : 0x5ea2d4);
 
     [
       handles.worldPoint.material,

@@ -100,7 +100,7 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 - Draw axes, the optical axis, image-plane outlines, brackets, and mathematical labels primarily in white in dark mode and deep charcoal in light mode.
 - Use green for the projection line, matching the reference diagram. Give it the strongest geometric line weight with only a restrained soft halo; construction and reference lines must recede.
 - Use a polished warm yellow for \(\mathbf{P}\) and \(\mathbf{p}\), differentiating them through size, position, and labels as well as colour. Keep the projected marker at a stable screen size as focal length and observer distance change; do not pulse or resize it when projection values update.
-- Use blue for the contextual scene surface near \(\mathbf{P}\). Keep its lighting soft, moderately rough, and subordinate to the projection construction.
+- Use blue for the contextual scene surface near \(\mathbf{P}\). Keep its lighting soft, moderately rough, and subordinate to the projection construction. Show a restrained blue outer halo while the sphere is hovered or dragged so its direct-manipulation affordance matches the point interaction.
 - Render the physical image plane as low-opacity dark glass with faint cool-neutral edges and centre guides rather than a large solid region.
 - Communicate focal length through direct image-plane motion and temporary manipulation feedback rather than a permanent bracket or standalone \(f\) label.
 - Use one compact translucent control pill for visibility toggles. Keep the live point coordinates attached to their geometric labels; show the focal-length value only during direct plane manipulation with restrained fades.
@@ -120,6 +120,7 @@ The light theme should preserve the same semantic colour roles and use a present
 - The observer camera is an inspection tool only. Orbiting, panning, or zooming it must never alter the pinhole camera or projection.
 - Dragging \(\mathbf{P}\) temporarily owns the pointer until release or cancellation so that the scene cannot orbit accidentally during the same gesture.
 - Dragging the blue object translates it in an observer-facing plane; Shift-drag translates it in depth. The world point moves by the same displacement and remains on the object.
+- Hovering the blue object reveals a soft outer halo, matching the point halo, and the halo remains visible throughout an object-drag gesture.
 - Point manipulation must use ray-surface intersection so \(\mathbf{P}\) remains on the fixed blue object while supporting meaningful changes in transverse position and depth.
 - The image plane is the focal-length control. Pointer dragging must constrain it to the optical axis within a finite positive range, and a visually hidden native range control must provide equivalent keyboard access without reintroducing a visible slider.
 - Image-plane hover and drag states must make the direct manipulation discoverable, suppress observer orbit during the gesture, and show a temporary focal-length value that fades in on press and out on release.
