@@ -17,7 +17,7 @@ The scene contains:
 - A draggable world point, \(\mathbf{P}=(X,Y,Z)\), constrained to the surface of a fixed blue scene object in front of the camera.
 - The projected point, \(\mathbf{p}=(x,y,f)\), on the physical image plane.
 - One continuous projection line spanning \(\mathbf{P}\), \(o\), and \(\mathbf{p}\).
-- Concise mathematical point labels that continuously show the live world and projected coordinates, plus temporary contextual equations during manipulation.
+- Concise KaTeX-rendered mathematical point labels that express the world point as \(\mathbf{P}=(X,Y,Z)\) followed by its live 3D world coordinate, and the projected point as \(\mathbf{p}=(fX/Z,fY/Z,f)\) followed by its live 3D position on the image plane.
 - A restrained blue spherical scene object whose surface contains \(\mathbf{P}\). The object constrains point manipulation but does not otherwise participate in the projection calculation.
 
 The initial view shows the complete construction from an oblique angle so that the world point, camera centre, image plane, optical axis, and image inversion are all visible. The 3D scene remains the dominant surface.
@@ -103,7 +103,7 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 - Use blue for the contextual scene surface near \(\mathbf{P}\). Keep its lighting soft, moderately rough, and subordinate to the projection construction.
 - Render the physical image plane as low-opacity dark glass with faint cool-neutral edges and centre guides rather than a large solid region.
 - Communicate focal length through direct image-plane motion and temporary manipulation feedback rather than a permanent bracket or standalone \(f\) label.
-- Use one compact translucent control pill for visibility toggles. Keep the live point coordinates attached to their geometric labels; keep equations and focal-length values contextual and temporary rather than placing them in permanent cards.
+- Use one compact translucent control pill for visibility toggles. Keep the live point coordinates attached to their geometric labels; show the focal-length value only during direct plane manipulation with restrained fades.
 - Typeset variables in standard mathematical notation, including italic variables and bold vector names where explanatory text distinguishes vectors.
 - Render mathematical symbols and expressions from LaTeX with KaTeX rather than assembling notation from Unicode glyphs.
 - Keep labels readable against surfaces and prevent avoidable overlap while the observer camera moves.
@@ -120,7 +120,7 @@ The light theme should preserve the same semantic colour roles and adequate cont
 - Dragging the blue object translates it in an observer-facing plane; Shift-drag translates it in depth. The world point moves by the same displacement and remains on the object.
 - Point manipulation must use ray-surface intersection so \(\mathbf{P}\) remains on the fixed blue object while supporting meaningful changes in transverse position and depth.
 - The image plane is the focal-length control. Pointer dragging must constrain it to the optical axis within a finite positive range, and a visually hidden native range control must provide equivalent keyboard access without reintroducing a visible slider.
-- Image-plane hover and drag states must make the direct manipulation discoverable, suppress observer orbit during the gesture, and show only temporary focal-length and equation feedback.
+- Image-plane hover and drag states must make the direct manipulation discoverable, suppress observer orbit during the gesture, and show a temporary focal-length value that fades in on press and out on release.
 - Essential controls use native, keyboard-operable elements with accessible names and visible focus.
 - Touch targets must be large enough to operate reliably, and control groups must reflow instead of causing horizontal page scrolling.
 - Provide a concise accessible description or status that reports the current world point, focal length, projected point, and invalid state without attempting to duplicate the full spatial experience in prose.
@@ -129,7 +129,7 @@ The light theme should preserve the same semantic colour roles and adequate cont
 
 - Make cause and effect immediate: moving \(\mathbf{P}\) updates \(\mathbf{p}\), and changing \(f\) moves the image plane and changes the projected coordinates.
 - Keep the physical-image inversion visible from the initial viewpoint and understandable after observer navigation.
-- Show the coordinate relationship alongside the construction without allowing an equation panel to dominate the scene.
+- Show the coordinate relationship directly in the projected-point label as \(\mathbf{p}=(fX/Z,fY/Z,f)=(x,y,f)\), with the final tuple populated by the live 3D position on the image plane, without a separate equation panel.
 - Use plain-language help for the physical image plane and the observer camera where notation alone may be ambiguous.
 - Do not imply that observer-camera movement changes the pinhole-camera model.
 - Do not present invalid or clamped states as valid mathematical results.

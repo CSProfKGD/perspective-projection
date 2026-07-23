@@ -85,21 +85,6 @@ function renderMath(expression: string) {
   });
 }
 
-function MathText({
-  expression,
-  className,
-}: {
-  expression: string;
-  className?: string;
-}) {
-  return (
-    <span
-      className={className}
-      dangerouslySetInnerHTML={{ __html: renderMath(expression) }}
-    />
-  );
-}
-
 function createLine(
   start: THREE.Vector3,
   end: THREE.Vector3,
@@ -143,16 +128,11 @@ export function ProjectionLab() {
   );
   const [focalLength, setFocalLength] = useState(INITIAL_FOCAL_LENGTH);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const [hasInteracted, setHasInteracted] = useState(false);
-  const [projectionFeedback, setProjectionFeedback] = useState<
-    "point" | "plane" | null
-  >(null);
   const [planeHovered, setPlaneHovered] = useState(false);
   const [planeDragging, setPlaneDragging] = useState(false);
   const [planeKeyboardFocus, setPlaneKeyboardFocus] = useState(false);
   const [planeTooltipVisible, setPlaneTooltipVisible] = useState(false);
   const [planeValueVisible, setPlaneValueVisible] = useState(false);
-  const feedbackTimerRef = useRef<number | null>(null);
   const planeValueTimerRef = useRef<number | null>(null);
   const resetFrameRef = useRef<number | null>(null);
   const [visibility, setVisibility] = useState<VisibilityState>({
@@ -418,7 +398,11 @@ export function ProjectionLab() {
       String.raw`f=2.10`,
       "plane-value",
     );
-    planeValue.position.set(-1.7, 1.58, INITIAL_FOCAL_LENGTH);
+    planeValue.position.set(
+      -PLANE_WIDTH / 2,
+      PLANE_HEIGHT / 2,
+      INITIAL_FOCAL_LENGTH,
+    );
     planeValue.visible = false;
     scene.add(planeValue);
 
@@ -551,7 +535,6 @@ export function ProjectionLab() {
 
       if (pointHits.length > 0) {
         dragMode = "point";
-        setProjectionFeedback("point");
       } else if (planeHits.length > 0) {
         const axisParameter = axisParameterFromRay();
         if (axisParameter === null) return;
@@ -563,10 +546,8 @@ export function ProjectionLab() {
         setPlaneHovered(false);
         setPlaneDragging(true);
         setPlaneValueVisible(true);
-        setProjectionFeedback("plane");
       } else if (surfaceHits.length > 0) {
         dragMode = "object";
-        setProjectionFeedback("point");
         const viewDirection = camera.getWorldDirection(new THREE.Vector3());
         dragPlane.setFromNormalAndCoplanarPoint(viewDirection, surface.position);
         raycaster.ray.intersectPlane(dragPlane, dragIntersection);
@@ -579,7 +560,6 @@ export function ProjectionLab() {
       }
 
       controls.enabled = false;
-      setHasInteracted(true);
       setPointActive(dragMode === "point");
       renderer.domElement.classList.add("is-dragging");
       renderer.domElement.setPointerCapture(event.pointerId);
@@ -680,21 +660,8 @@ export function ProjectionLab() {
       if (completedMode === "plane") {
         planeHasBeenDragged = true;
         setPlaneDragging(false);
-        if (planeValueTimerRef.current !== null) {
-          window.clearTimeout(planeValueTimerRef.current);
-        }
-        planeValueTimerRef.current = window.setTimeout(
-          () => setPlaneValueVisible(false),
-          850,
-        );
+        setPlaneValueVisible(false);
       }
-      if (feedbackTimerRef.current !== null) {
-        window.clearTimeout(feedbackTimerRef.current);
-      }
-      feedbackTimerRef.current = window.setTimeout(
-        () => setProjectionFeedback(null),
-        950,
-      );
       renderer.domElement.classList.remove("is-dragging");
       renderer.domElement.style.cursor = "grab";
       if (renderer.domElement.hasPointerCapture(event.pointerId)) {
@@ -709,7 +676,6 @@ export function ProjectionLab() {
       setPlaneDragging(false);
       setPlaneTooltipVisible(false);
       setPlaneValueVisible(false);
-      setProjectionFeedback(null);
     };
 
     renderer.domElement.addEventListener("pointerdown", pointerDown);
@@ -812,10 +778,10 @@ export function ProjectionLab() {
 
     handles.worldLabel.position.set(
       worldPoint.x,
-      worldPoint.y + 0.38,
+      worldPoint.y + 0.72,
       worldPoint.z,
     );
-    handles.projectionLabel.position.set(p.x, p.y + 0.34, p.z);
+    handles.projectionLabel.position.set(p.x, p.y + 0.68, p.z);
     handles.planeTooltip.position.z = focalLength + 0.03;
     handles.planeValue.position.z = focalLength + 0.03;
     handles.planeValue.element.innerHTML = renderMath(
@@ -823,14 +789,14 @@ export function ProjectionLab() {
     );
 
     handles.worldLabel.element.innerHTML = renderMath(
-      String.raw`\mathbf{P}=\left(${format(worldPoint.x)},\,${format(
-        worldPoint.y,
-      )},\,${format(worldPoint.z)}\right)`,
+      String.raw`\mathbf{P}=\left(X,\,Y,\,Z\right)=\left(${format(
+        worldPoint.x,
+      )},\,${format(worldPoint.y)},\,${format(worldPoint.z)}\right)`,
     );
     handles.projectionLabel.element.innerHTML = renderMath(
-      String.raw`\mathbf{p}=\left(${format(p.x)},\,${format(p.y)},\,${format(
-        p.z,
-      )}\right)`,
+      String.raw`\mathbf{p}=\left(\frac{fX}{Z},\,\frac{fY}{Z},\,f\right)=\left(${format(
+        p.x,
+      )},\,${format(p.y)},\,${format(p.z)}\right)`,
     );
 
     handles.projectedPoint.visible = true;
@@ -840,7 +806,6 @@ export function ProjectionLab() {
     objectCentre,
     focalLength,
     projection,
-    projectionFeedback,
     visibility.sightline,
   ]);
 
@@ -873,8 +838,11 @@ export function ProjectionLab() {
 
     handles.planeTooltip.visible =
       planeTooltipVisible && !planeDragging;
-    handles.planeValue.visible =
-      visibility.labels && (planeValueVisible || planeKeyboardFocus);
+    handles.planeValue.visible = visibility.labels;
+    handles.planeValue.element.classList.toggle(
+      "is-visible",
+      planeValueVisible || planeKeyboardFocus,
+    );
   }, [
     planeDragging,
     planeHovered,
@@ -912,9 +880,6 @@ export function ProjectionLab() {
 
   useEffect(
     () => () => {
-      if (feedbackTimerRef.current !== null) {
-        window.clearTimeout(feedbackTimerRef.current);
-      }
       if (planeValueTimerRef.current !== null) {
         window.clearTimeout(planeValueTimerRef.current);
       }
@@ -929,14 +894,7 @@ export function ProjectionLab() {
     setVisibility((current) => ({ ...current, [key]: !current[key] }));
   };
 
-  const scheduleProjectionFeedbackHide = () => {
-    if (feedbackTimerRef.current !== null) {
-      window.clearTimeout(feedbackTimerRef.current);
-    }
-    feedbackTimerRef.current = window.setTimeout(
-      () => setProjectionFeedback(null),
-      950,
-    );
+  const schedulePlaneValueHide = () => {
     if (planeValueTimerRef.current !== null) {
       window.clearTimeout(planeValueTimerRef.current);
     }
@@ -947,10 +905,8 @@ export function ProjectionLab() {
   };
 
   const beginKeyboardPlaneFeedback = () => {
-    setHasInteracted(true);
-    setProjectionFeedback("plane");
     setPlaneValueVisible(true);
-    scheduleProjectionFeedbackHide();
+    schedulePlaneValueHide();
   };
 
   const handlePlaneKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -973,7 +929,6 @@ export function ProjectionLab() {
   };
 
   const reset = () => {
-    setHasInteracted(false);
     setPlaneKeyboardFocus(false);
     sceneRef.current?.resetInteractionSession();
     sceneRef.current?.resetView();
@@ -1064,15 +1019,6 @@ export function ProjectionLab() {
         <div className="lab-title-block">
           <p className="eyebrow">Perspective projection</p>
           <h1>One point. One ray. One image.</h1>
-          <p className="supporting-copy">
-            Drag the 3D point to see how perspective projection forms an
-            inverted image.
-          </p>
-          <p
-            className={`interaction-hint${hasInteracted ? " is-muted" : ""}`}
-          >
-            Drag the point or image plane. Drag the background to orbit.
-          </p>
         </div>
         <div className="header-actions">
           <button className="text-button" type="button" onClick={reset}>
@@ -1107,12 +1053,11 @@ export function ProjectionLab() {
         aria-valuetext={`${format(focalLength)} scene units`}
         onFocus={() => {
           setPlaneKeyboardFocus(true);
-          setProjectionFeedback("plane");
           setPlaneValueVisible(true);
         }}
         onBlur={() => {
           setPlaneKeyboardFocus(false);
-          scheduleProjectionFeedbackHide();
+          schedulePlaneValueHide();
         }}
         onKeyDown={handlePlaneKeyDown}
         onChange={(event) => {
@@ -1120,17 +1065,6 @@ export function ProjectionLab() {
           beginKeyboardPlaneFeedback();
         }}
       />
-
-      <div
-        className={`context-equation${
-          projectionFeedback !== null && visibility.labels ? " is-visible" : ""
-        }`}
-        aria-hidden={projectionFeedback === null || !visibility.labels}
-      >
-        <MathText
-          expression={String.raw`x=f\frac{X}{Z},\qquad y=f\frac{Y}{Z}`}
-        />
-      </div>
 
       <section className="control-dock" aria-label="Visualization controls">
         <div className="toggle-group" aria-label="Visible geometry">

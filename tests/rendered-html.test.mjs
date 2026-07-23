@@ -31,18 +31,13 @@ test("server-renders the perspective projection lab", async () => {
   const html = await response.text();
   assert.match(html, /<title>Perspective Projection<\/title>/i);
   assert.match(html, /One point\. One ray\. One image\./);
-  assert.match(
-    html,
-    /Drag the 3D point to see how perspective projection forms an inverted image\./,
-  );
   assert.match(html, /Perspective projection/);
   assert.match(html, /Focal length/);
   assert.match(html, /plane-accessibility-control/);
-  assert.match(
+  assert.doesNotMatch(
     html,
-    /Drag the point or image plane\. Drag the background to orbit\./,
+    /Live projection|slider-control|slider-panel|context-equation|Drag the 3D point|Drag the point or image plane/,
   );
-  assert.doesNotMatch(html, /Live projection|slider-control|slider-panel/);
   assert.match(html, /role="status"/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
