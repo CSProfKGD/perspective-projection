@@ -60,9 +60,6 @@ type SceneHandles = {
   projectionLabel: CSS2DObject;
   worldLabel: CSS2DObject;
   allLabels: THREE.Group;
-  labelLeaders: THREE.Group;
-  worldLabelLeader: Line2;
-  projectionLabelLeader: Line2;
   resize: () => void;
   render: () => void;
   resetView: () => void;
@@ -100,7 +97,6 @@ const PLANE_NORMAL_ARROWHEAD_SCALE = 1.12;
 const AXIS_ARROWHEAD_LENGTH = 0.34 * AXIS_ARROWHEAD_SCALE;
 const AXIS_ARROWHEAD_WIDTH = 0.16 * AXIS_ARROWHEAD_SCALE;
 const AXIS_ARROWHEAD_SHAFT_GAP = 0.025;
-const LABEL_LEADER_LINE_WIDTH = 1;
 
 function format(value: number) {
   const normalized = Math.abs(value) < 0.005 ? 0 : value;
@@ -276,15 +272,6 @@ export function ProjectionLab() {
       opacity: 0.34,
       worldUnits: false,
     });
-    const labelLeaderMaterial = new LineMaterial({
-      color: 0xeceee9,
-      linewidth: LABEL_LEADER_LINE_WIDTH,
-      transparent: true,
-      opacity: 0.22,
-      depthWrite: false,
-      worldUnits: false,
-    });
-
     const ambient = new THREE.HemisphereLight(0xdfe8e1, 0x111713, 1.75);
     scene.add(ambient);
     const key = new THREE.DirectionalLight(0xfff8df, 2.1);
@@ -523,20 +510,6 @@ export function ProjectionLab() {
     allLabels.add(projectionLabel);
     scene.add(allLabels);
 
-    const labelLeaders = new THREE.Group();
-    const worldLabelLeader = createLine(
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      labelLeaderMaterial,
-    );
-    const projectionLabelLeader = createLine(
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      labelLeaderMaterial,
-    );
-    labelLeaders.add(worldLabelLeader, projectionLabelLeader);
-    scene.add(labelLeaders);
-
     const planeTooltip = createLabel(
       String.raw`\text{Drag to change focal length}`,
       "plane-tooltip",
@@ -568,7 +541,6 @@ export function ProjectionLab() {
       structureMaterial.resolution.set(width, height);
       axisMaterial.resolution.set(width, height);
       imageGuideMaterial.resolution.set(width, height);
-      labelLeaderMaterial.resolution.set(width, height);
     };
 
     const defaultCamera = new THREE.Vector3(9.5, 6.2, 11.5);
@@ -626,7 +598,6 @@ export function ProjectionLab() {
       if (!axisMaterials.includes(material)) axisMaterials.push(material);
     });
     const rayMaterials = collectMaterials(sightline);
-    const labelLeaderMaterials = collectMaterials(labelLeaders);
     const axisLabelElements = collectLabelElements(axes);
     const labelElements = collectLabelElements(allLabels);
 
@@ -704,10 +675,6 @@ export function ProjectionLab() {
       );
       applyMaterialDissolve(axisMaterials, dissolveState.axes.current);
       applyMaterialDissolve(rayMaterials, dissolveState.sightline.current);
-      applyMaterialDissolve(
-        labelLeaderMaterials,
-        dissolveState.labels.current,
-      );
       axisLabelElements.forEach((element) => {
         element.style.opacity = String(0.76 * dissolveState.axes.current);
       });
@@ -986,9 +953,6 @@ export function ProjectionLab() {
       projectionLabel,
       worldLabel,
       allLabels,
-      labelLeaders,
-      worldLabelLeader,
-      projectionLabelLeader,
       resize,
       render,
       resetView,
@@ -1058,24 +1022,6 @@ export function ProjectionLab() {
     );
     handles.worldLabel.position.copy(worldLabelPosition);
     handles.projectionLabel.position.copy(projectionLabelPosition);
-    (
-      handles.worldLabelLeader.geometry as LineGeometry
-    ).setPositions([
-      worldPoint.x,
-      worldPoint.y,
-      worldPoint.z,
-      ...worldLabelPosition.toArray(),
-    ]);
-    handles.worldLabelLeader.computeLineDistances();
-    (
-      handles.projectionLabelLeader.geometry as LineGeometry
-    ).setPositions([
-      p.x,
-      p.y,
-      p.z,
-      ...projectionLabelPosition.toArray(),
-    ]);
-    handles.projectionLabelLeader.computeLineDistances();
     handles.planeTooltip.position.z = focalLength + 0.03;
     handles.planeValue.position.z = focalLength + 0.03;
     handles.planeValue.element.innerHTML = renderMath(
@@ -1198,11 +1144,6 @@ export function ProjectionLab() {
 
     updateGroupMaterials(handles.axes, structure, axisOpacity);
     updateGroupMaterials(handles.imageAxes, structure, axisOpacity);
-    updateGroupMaterials(
-      handles.labelLeaders,
-      structure,
-      isLight ? 0.24 : 0.22,
-    );
     updateGroupMaterials(
       handles.planeNormal,
       green,
