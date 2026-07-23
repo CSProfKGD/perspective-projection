@@ -1,5 +1,7 @@
 # Perspective Projection
 
+[Open the GitHub Pages visualization](https://csprofkgd.github.io/perspective-projection/)
+
 An interactive 3D visualization of pinhole-camera perspective projection. The
 scene uses a physical image plane behind the camera centre, so visible points
 with \(Z<0\) project to
