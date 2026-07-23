@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import katex from "katex";
 import * as THREE from "three";
 import {
@@ -8,6 +14,9 @@ import {
   CSS2DRenderer,
 } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { projectPoint, type Vector3Data } from "./lib/projection";
 import {
   pointOnSphere,
@@ -33,7 +42,7 @@ type SceneHandles = {
   imageAxes: THREE.Group;
   axes: THREE.Group;
   surface: THREE.Mesh;
-  sightline: THREE.Line;
+  sightline: THREE.Group;
   focalGroup: THREE.Group;
   projectionLabel: CSS2DObject;
   worldLabel: CSS2DObject;
@@ -42,6 +51,8 @@ type SceneHandles = {
   resize: () => void;
   render: () => void;
   resetView: () => void;
+  setPointActive: (active: boolean) => void;
+  pulseProjection: () => void;
 };
 
 const INITIAL_OBJECT_CENTRE: Vector3Data = { x: 1.8, y: 0.2, z: -6.6 };
@@ -93,6 +104,22 @@ function createLine(
   return new THREE.Line(geometry, material);
 }
 
+function createProjectionLine(width: number, opacity: number) {
+  const geometry = new LineGeometry();
+  geometry.setPositions([0, 0, 0, 0, 0, 0]);
+  const material = new LineMaterial({
+    color: 0x78b84b,
+    linewidth: width,
+    transparent: true,
+    opacity,
+    depthWrite: false,
+    worldUnits: false,
+  });
+  const line = new Line2(geometry, material);
+  line.computeLineDistances();
+  return line;
+}
+
 function createLabel(expression: string, className = "") {
   const element = document.createElement("span");
   element.className = `scene-label ${className}`.trim();
@@ -119,6 +146,7 @@ function Slider({
   onChange: (value: number) => void;
 }) {
   const id = `slider-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const progress = ((value - min) / (max - min)) * 100;
 
   return (
     <div className="slider-control">
@@ -137,6 +165,7 @@ function Slider({
         max={max}
         step={step}
         value={value}
+        style={{ "--range-progress": `${progress}%` } as CSSProperties}
         aria-label={label}
         onChange={(event) => onChange(Number(event.target.value))}
       />
@@ -147,12 +176,14 @@ function Slider({
 export function ProjectionLab() {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<SceneHandles | null>(null);
+  const previousProjectedRef = useRef<Vector3Data | null>(null);
   const [worldPoint, setWorldPoint] = useState<Vector3Data>(INITIAL_POINT);
   const [objectCentre, setObjectCentre] = useState<Vector3Data>(
     INITIAL_OBJECT_CENTRE,
   );
   const [focalLength, setFocalLength] = useState(INITIAL_FOCAL_LENGTH);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [visibility, setVisibility] = useState<VisibilityState>({
     axes: true,
     labels: true,
@@ -166,14 +197,14 @@ export function ProjectionLab() {
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("projection-theme");
-    if (savedTheme === "light" || savedTheme === "dark") {
-      setTheme(savedTheme);
-      return;
-    }
-
-    if (window.matchMedia("(prefers-color-scheme: light)").matches) {
-      setTheme("light");
-    }
+    const preferredTheme =
+      savedTheme === "light" || savedTheme === "dark"
+        ? savedTheme
+        : window.matchMedia("(prefers-color-scheme: light)").matches
+          ? "light"
+          : "dark";
+    const frame = window.requestAnimationFrame(() => setTheme(preferredTheme));
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
@@ -213,35 +244,35 @@ export function ProjectionLab() {
     const structureMaterial = new THREE.LineBasicMaterial({
       color: 0xeceee9,
       transparent: true,
-      opacity: 0.68,
+      opacity: 0.3,
     });
     const axisMaterial = new THREE.LineBasicMaterial({
       color: 0xeceee9,
       transparent: true,
-      opacity: 0.5,
-    });
-    const sightlineMaterial = new THREE.LineBasicMaterial({
-      color: 0x72b83c,
-      transparent: true,
-      opacity: 0.98,
+      opacity: 0.34,
     });
 
-    const ambient = new THREE.HemisphereLight(0xe8f4e4, 0x1c2620, 2.2);
+    const ambient = new THREE.HemisphereLight(0xdfe8e1, 0x111713, 1.75);
     scene.add(ambient);
-    const key = new THREE.DirectionalLight(0xffffff, 2.4);
-    key.position.set(6, 9, 7);
+    const key = new THREE.DirectionalLight(0xfff8df, 2.1);
+    key.position.set(5, 8, 7);
     scene.add(key);
+    const rim = new THREE.DirectionalLight(0x75a9d6, 0.72);
+    rim.position.set(-7, 2, -5);
+    scene.add(rim);
 
     const imagePlane = new THREE.Mesh(
       new THREE.PlaneGeometry(PLANE_WIDTH, PLANE_HEIGHT),
       new THREE.MeshPhysicalMaterial({
-        color: 0x96a09a,
+        color: 0x303a3a,
         transparent: true,
-        opacity: 0.2,
+        opacity: 0.085,
         side: THREE.DoubleSide,
         depthWrite: false,
-        roughness: 0.7,
+        roughness: 0.34,
         metalness: 0,
+        clearcoat: 0.18,
+        clearcoatRoughness: 0.82,
       }),
     );
     scene.add(imagePlane);
@@ -273,6 +304,12 @@ export function ProjectionLab() {
       0.22,
       0.11,
     );
+    const planeNormalLine = planeNormal.line.material as THREE.LineBasicMaterial;
+    planeNormalLine.transparent = true;
+    planeNormalLine.opacity = 0.58;
+    const planeNormalCone = planeNormal.cone.material as THREE.MeshBasicMaterial;
+    planeNormalCone.transparent = true;
+    planeNormalCone.opacity = 0.58;
     imageAxes.add(planeNormal);
     scene.add(imageAxes);
 
@@ -303,39 +340,62 @@ export function ProjectionLab() {
     });
 
     const origin = new THREE.Mesh(
-      new THREE.SphereGeometry(0.13, 24, 24),
+      new THREE.SphereGeometry(0.095, 24, 24),
       new THREE.MeshBasicMaterial({ color: 0xf5f5f0 }),
     );
     scene.add(origin);
 
     const worldPointMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.17, 28, 28),
-      new THREE.MeshStandardMaterial({
-        color: 0xf2cd54,
-        emissive: 0x554311,
-        emissiveIntensity: 1.1,
+      new THREE.SphereGeometry(0.205, 32, 32),
+      new THREE.MeshPhysicalMaterial({
+        color: 0xf2c75b,
+        emissive: 0x3d2a08,
+        emissiveIntensity: 0.38,
+        roughness: 0.28,
+        metalness: 0.12,
+        clearcoat: 0.48,
+        clearcoatRoughness: 0.22,
       }),
     );
     scene.add(worldPointMesh);
 
     const projectedPointMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.14, 28, 28),
-      new THREE.MeshStandardMaterial({
-        color: 0xf2cd54,
-        emissive: 0x554311,
-        emissiveIntensity: 0.85,
+      new THREE.SphereGeometry(0.145, 30, 30),
+      new THREE.MeshPhysicalMaterial({
+        color: 0xf2c75b,
+        emissive: 0x4a340b,
+        emissiveIntensity: 0.52,
+        roughness: 0.34,
+        metalness: 0.08,
+        clearcoat: 0.32,
       }),
     );
     scene.add(projectedPointMesh);
 
+    const pointHalo = new THREE.Mesh(
+      new THREE.SphereGeometry(0.31, 24, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0xf2c75b,
+        transparent: true,
+        opacity: 0.1,
+        depthWrite: false,
+      }),
+    );
+    pointHalo.visible = false;
+    scene.add(pointHalo);
+
     const surface = new THREE.Mesh(
       new THREE.SphereGeometry(OBJECT_RADIUS, 48, 48),
-      new THREE.MeshStandardMaterial({
-        color: 0x3e8dcf,
+      new THREE.MeshPhysicalMaterial({
+        color: 0x397fb5,
         transparent: true,
-        opacity: 0.74,
-        roughness: 0.58,
-        metalness: 0.04,
+        opacity: 0.76,
+        roughness: 0.52,
+        metalness: 0.03,
+        clearcoat: 0.12,
+        clearcoatRoughness: 0.72,
+        sheen: 0.16,
+        sheenColor: new THREE.Color(0x83a9c5),
       }),
     );
     surface.position.set(
@@ -345,11 +405,10 @@ export function ProjectionLab() {
     );
     scene.add(surface);
 
-    const sightline = createLine(
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      sightlineMaterial,
-    );
+    const sightline = new THREE.Group();
+    const sightlineGlow = createProjectionLine(7.5, 0.12);
+    const sightlineCore = createProjectionLine(2.7, 0.98);
+    sightline.add(sightlineGlow, sightlineCore);
     scene.add(sightline);
 
     const focalGroup = new THREE.Group();
@@ -379,16 +438,74 @@ export function ProjectionLab() {
       camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
       labelRenderer.setSize(width, height);
+      (sightlineCore.material as LineMaterial).resolution.set(width, height);
+      (sightlineGlow.material as LineMaterial).resolution.set(width, height);
     };
 
+    const defaultCamera = new THREE.Vector3(9.5, 6.2, 11.5);
+    const defaultTarget = new THREE.Vector3(0, 0, -1.5);
+    let cameraTween:
+      | {
+          startedAt: number;
+          fromPosition: THREE.Vector3;
+          fromTarget: THREE.Vector3;
+        }
+      | null = null;
+    let projectedPulseUntil = 0;
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
     const resetView = () => {
-      camera.position.set(9.5, 6.2, 11.5);
-      controls.target.set(0, 0, -1.5);
-      controls.update();
+      if (reducedMotion) {
+        camera.position.copy(defaultCamera);
+        controls.target.copy(defaultTarget);
+        controls.update();
+        return;
+      }
+      cameraTween = {
+        startedAt: performance.now(),
+        fromPosition: camera.position.clone(),
+        fromTarget: controls.target.clone(),
+      };
+    };
+
+    const setPointActive = (active: boolean) => {
+      pointHalo.visible = active;
+      (sightlineCore.material as LineMaterial).linewidth = active ? 3.35 : 2.7;
+      (sightlineGlow.material as LineMaterial).opacity = active ? 0.18 : 0.12;
+    };
+
+    const pulseProjection = () => {
+      if (!reducedMotion) projectedPulseUntil = performance.now() + 230;
     };
 
     let frame = 0;
     const render = () => {
+      const now = performance.now();
+      if (cameraTween) {
+        const progress = Math.min((now - cameraTween.startedAt) / 620, 1);
+        const eased = 1 - Math.pow(1 - progress, 4);
+        camera.position.lerpVectors(
+          cameraTween.fromPosition,
+          defaultCamera,
+          eased,
+        );
+        controls.target.lerpVectors(
+          cameraTween.fromTarget,
+          defaultTarget,
+          eased,
+        );
+        if (progress >= 1) cameraTween = null;
+      }
+      if (projectedPulseUntil > now) {
+        const phase = 1 - (projectedPulseUntil - now) / 230;
+        const scale = 1 + Math.sin(phase * Math.PI) * 0.42;
+        projectedPointMesh.scale.setScalar(scale);
+      } else {
+        projectedPointMesh.scale.setScalar(1);
+      }
+      pointHalo.position.copy(worldPointMesh.position);
       controls.update();
       renderer.render(scene, camera);
       labelRenderer.render(scene, camera);
@@ -433,6 +550,8 @@ export function ProjectionLab() {
       }
 
       controls.enabled = false;
+      setHasInteracted(true);
+      setPointActive(dragMode === "point");
       renderer.domElement.classList.add("is-dragging");
       renderer.domElement.setPointerCapture(event.pointerId);
     };
@@ -445,6 +564,7 @@ export function ProjectionLab() {
         const overObject = raycaster.intersectObject(surface, false).length > 0;
         renderer.domElement.style.cursor =
           overPoint || overObject ? "pointer" : "grab";
+        setPointActive(overPoint);
         return;
       }
 
@@ -497,6 +617,7 @@ export function ProjectionLab() {
       if (!dragMode) return;
       dragMode = null;
       controls.enabled = true;
+      setPointActive(false);
       renderer.domElement.classList.remove("is-dragging");
       renderer.domElement.style.cursor = "grab";
       if (renderer.domElement.hasPointerCapture(event.pointerId)) {
@@ -535,6 +656,8 @@ export function ProjectionLab() {
       resize,
       render,
       resetView,
+      setPointActive,
+      pulseProjection,
     };
 
     return () => {
@@ -567,10 +690,32 @@ export function ProjectionLab() {
       objectCentre.y,
       objectCentre.z,
     );
-    handles.sightline.geometry.setFromPoints([
-      new THREE.Vector3(worldPoint.x, worldPoint.y, worldPoint.z),
-      new THREE.Vector3(p.x, p.y, p.z),
-    ]);
+    const rayPositions = [
+      worldPoint.x,
+      worldPoint.y,
+      worldPoint.z,
+      p.x,
+      p.y,
+      p.z,
+    ];
+    handles.sightline.children.forEach((child) => {
+      const line = child as Line2;
+      (line.geometry as LineGeometry).setPositions(rayPositions);
+      line.computeLineDistances();
+    });
+
+    const previousProjected = previousProjectedRef.current;
+    if (
+      previousProjected &&
+      Math.hypot(
+        p.x - previousProjected.x,
+        p.y - previousProjected.y,
+        p.z - previousProjected.z,
+      ) > 0.075
+    ) {
+      handles.pulseProjection();
+    }
+    previousProjectedRef.current = { x: p.x, y: p.y, z: p.z };
 
     const focalLines = handles.focalGroup.children as THREE.Line[];
     focalLines[0].geometry.setFromPoints([
@@ -619,8 +764,8 @@ export function ProjectionLab() {
     const isLight = theme === "light";
     const structure = isLight ? 0x252a26 : 0xeceee9;
     const plane = handles.imagePlane.material as THREE.MeshPhysicalMaterial;
-    plane.color.setHex(isLight ? 0x747d76 : 0x96a09a);
-    plane.opacity = isLight ? 0.17 : 0.2;
+    plane.color.setHex(isLight ? 0x64706a : 0x303a3a);
+    plane.opacity = isLight ? 0.115 : 0.085;
 
     const originMaterial = handles.origin.material as THREE.MeshBasicMaterial;
     originMaterial.color.setHex(isLight ? 0x1b1f1c : 0xf5f5f0);
@@ -638,6 +783,7 @@ export function ProjectionLab() {
     setWorldPoint(INITIAL_POINT);
     setObjectCentre(INITIAL_OBJECT_CENTRE);
     setFocalLength(INITIAL_FOCAL_LENGTH);
+    setHasInteracted(false);
     sceneRef.current?.resetView();
   };
 
@@ -654,7 +800,16 @@ export function ProjectionLab() {
       <header className="lab-header">
         <div className="lab-title-block">
           <p className="eyebrow">Perspective projection</p>
-          <h1>One point. One line. An inverted image.</h1>
+          <h1>One point. One ray. One image.</h1>
+          <p className="supporting-copy">
+            Drag the 3D point to see how perspective projection forms an
+            inverted image.
+          </p>
+          <p
+            className={`interaction-hint${hasInteracted ? " is-muted" : ""}`}
+          >
+            Drag the point to move it. Shift-drag to orbit.
+          </p>
         </div>
         <div className="header-actions">
           <button className="text-button" type="button" onClick={reset}>
@@ -709,15 +864,6 @@ export function ProjectionLab() {
         </dl>
       </aside>
 
-      <p className="interaction-hint">
-        <strong>
-          Drag <MathText expression={String.raw`\mathbf{P}`} />
-        </strong>{" "}
-        across the object · <strong>drag the ball</strong> to move it
-        <br />
-        Shift-drag the ball for depth · drag empty space to orbit
-      </p>
-
       <section className="control-dock" aria-label="Visualization controls">
         <div className="toggle-group" aria-label="Visible geometry">
           {(Object.keys(visibility) as Array<keyof VisibilityState>).map(
@@ -730,7 +876,7 @@ export function ProjectionLab() {
                 onClick={() => toggle(key)}
               >
                 {key === "sightline"
-                  ? "Sightline"
+                  ? "Ray"
                   : key.charAt(0).toUpperCase() + key.slice(1)}
               </button>
             ),
@@ -744,7 +890,10 @@ export function ProjectionLab() {
             min={0.8}
             max={3.2}
             step={0.05}
-            onChange={setFocalLength}
+            onChange={(value) => {
+              setHasInteracted(true);
+              setFocalLength(value);
+            }}
           />
         </div>
       </section>

@@ -30,7 +30,11 @@ test("server-renders the perspective projection lab", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Perspective Projection<\/title>/i);
-  assert.match(html, /One point\. One line\. An inverted image\./);
+  assert.match(html, /One point\. One ray\. One image\./);
+  assert.match(
+    html,
+    /Drag the 3D point to see how perspective projection forms an inverted image\./,
+  );
   assert.match(html, /Perspective projection/);
   assert.match(html, /Live projection/);
   assert.match(html, /Focal length/);

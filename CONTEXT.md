@@ -96,13 +96,15 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 
 ## Visual Direction
 
-- Use a visually quiet black or near-black background by default, with an optional accessible light theme.
+- Use a visually quiet black or near-black background by default, with only a diffuse green tint around the central construction and a soft edge vignette. Avoid grids, spotlights, bright hotspots, and other decorative background treatments. Retain an optional accessible light theme.
+- Follow a restrained product-demo hierarchy: the world point is primary, followed by the continuous green projection line, projected point, glass-like image plane, camera centre, reference axes, and finally the interface.
 - Draw axes, the optical axis, image-plane outlines, brackets, and mathematical labels primarily in white in dark mode and deep charcoal in light mode.
-- Use green for the projection line, matching the reference diagram.
-- Use a restrained warm yellow for \(\mathbf{P}\) and \(\mathbf{p}\), differentiating them through position and labels as well as colour.
-- Use blue for the contextual scene surface near \(\mathbf{P}\). Keep it subordinate to the projection construction.
-- Render the physical image plane as a smooth, semi-transparent neutral surface with clearly visible centre axes.
+- Use green for the projection line, matching the reference diagram. Give it the strongest geometric line weight with only a restrained soft halo; construction and reference lines must recede.
+- Use a polished warm yellow for \(\mathbf{P}\) and \(\mathbf{p}\), differentiating them through size, position, and labels as well as colour. Show a subtle active halo for direct manipulation and a brief, non-looping projected-point pulse after meaningful changes.
+- Use blue for the contextual scene surface near \(\mathbf{P}\). Keep its lighting soft, moderately rough, and subordinate to the projection construction.
+- Render the physical image plane as low-opacity dark glass with faint cool-neutral edges and centre guides rather than a large solid region.
 - Keep the focal-length marker and interval visually tied to \(f\) without turning it into a large control overlay.
+- Use one compact translucent control card for visibility toggles and the focal-length slider, and one quiet live-projection card with tabular coordinate values.
 - Typeset variables in standard mathematical notation, including italic variables and bold vector names where explanatory text distinguishes vectors.
 - Render mathematical symbols and expressions from LaTeX with KaTeX rather than assembling notation from Unicode glyphs.
 - Keep labels readable against surfaces and prevent avoidable overlap while the observer camera moves.
