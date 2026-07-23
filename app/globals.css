@@ -237,11 +237,6 @@ h1 {
   color: var(--yellow);
 }
 
-.scene-label.focal {
-  color: var(--green);
-  font-style: italic;
-}
-
 .scene-label.axis {
   padding: 0;
   border: 0;

@@ -17,7 +17,6 @@ The scene contains:
 - A draggable world point, \(\mathbf{P}=(X,Y,Z)\), constrained to the surface of a fixed blue scene object in front of the camera.
 - The projected point, \(\mathbf{p}=(x,y,f)\), on the physical image plane.
 - One continuous projection line spanning \(\mathbf{P}\), \(o\), and \(\mathbf{p}\).
-- A visible focal-length interval from the camera centre to the image plane.
 - Concise mathematical point labels that continuously show the live world and projected coordinates, plus temporary contextual equations during manipulation.
 - A restrained blue spherical scene object whose surface contains \(\mathbf{P}\). The object constrains point manipulation but does not otherwise participate in the projection calculation.
 
@@ -103,7 +102,7 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 - Use a polished warm yellow for \(\mathbf{P}\) and \(\mathbf{p}\), differentiating them through size, position, and labels as well as colour. Show a subtle active halo for direct manipulation and a brief, non-looping projected-point pulse after meaningful changes.
 - Use blue for the contextual scene surface near \(\mathbf{P}\). Keep its lighting soft, moderately rough, and subordinate to the projection construction.
 - Render the physical image plane as low-opacity dark glass with faint cool-neutral edges and centre guides rather than a large solid region.
-- Keep the focal-length marker and interval visually tied to \(f\) without turning it into a large control overlay.
+- Communicate focal length through direct image-plane motion and temporary manipulation feedback rather than a permanent bracket or standalone \(f\) label.
 - Use one compact translucent control pill for visibility toggles. Keep the live point coordinates attached to their geometric labels; keep equations and focal-length values contextual and temporary rather than placing them in permanent cards.
 - Typeset variables in standard mathematical notation, including italic variables and bold vector names where explanatory text distinguishes vectors.
 - Render mathematical symbols and expressions from LaTeX with KaTeX rather than assembling notation from Unicode glyphs.

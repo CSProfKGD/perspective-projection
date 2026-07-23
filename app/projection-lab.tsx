@@ -44,13 +44,10 @@ type SceneHandles = {
   axes: THREE.Group;
   surface: THREE.Mesh;
   sightline: THREE.Group;
-  focalGroup: THREE.Group;
-  focalMaterial: THREE.LineBasicMaterial;
   planeTooltip: CSS2DObject;
   planeValue: CSS2DObject;
   projectionLabel: CSS2DObject;
   worldLabel: CSS2DObject;
-  focalLabel: CSS2DObject;
   allLabels: THREE.Group;
   resize: () => void;
   render: () => void;
@@ -398,19 +395,6 @@ export function ProjectionLab() {
     sightline.add(sightlineGlow, sightlineCore);
     scene.add(sightline);
 
-    const focalMaterial = new THREE.LineBasicMaterial({
-      color: 0x78b84b,
-      transparent: true,
-      opacity: 0.34,
-    });
-    const focalGroup = new THREE.Group();
-    focalGroup.add(
-      createLine(new THREE.Vector3(), new THREE.Vector3(), focalMaterial),
-      createLine(new THREE.Vector3(), new THREE.Vector3(), focalMaterial),
-      createLine(new THREE.Vector3(), new THREE.Vector3(), focalMaterial),
-    );
-    scene.add(focalGroup);
-
     const allLabels = new THREE.Group();
     const originLabel = createLabel("o");
     originLabel.position.set(-0.22, 0.27, 0);
@@ -420,8 +404,6 @@ export function ProjectionLab() {
     allLabels.add(worldLabel);
     const projectionLabel = createLabel("\\mathbf{p}=(x,y,f)", "point");
     allLabels.add(projectionLabel);
-    const focalLabel = createLabel("f", "focal");
-    allLabels.add(focalLabel);
     scene.add(allLabels);
 
     const planeTooltip = createLabel(
@@ -755,13 +737,10 @@ export function ProjectionLab() {
       axes,
       surface,
       sightline,
-      focalGroup,
-      focalMaterial,
       planeTooltip,
       planeValue,
       projectionLabel,
       worldLabel,
-      focalLabel,
       allLabels,
       resize,
       render,
@@ -831,27 +810,12 @@ export function ProjectionLab() {
     }
     previousProjectedRef.current = { x: p.x, y: p.y, z: p.z };
 
-    const focalLines = handles.focalGroup.children as THREE.Line[];
-    focalLines[0].geometry.setFromPoints([
-      new THREE.Vector3(-0.34, -0.34, 0),
-      new THREE.Vector3(-0.34, -0.34, focalLength),
-    ]);
-    focalLines[1].geometry.setFromPoints([
-      new THREE.Vector3(-0.48, -0.34, 0),
-      new THREE.Vector3(-0.2, -0.34, 0),
-    ]);
-    focalLines[2].geometry.setFromPoints([
-      new THREE.Vector3(-0.48, -0.34, focalLength),
-      new THREE.Vector3(-0.2, -0.34, focalLength),
-    ]);
-
     handles.worldLabel.position.set(
       worldPoint.x,
       worldPoint.y + 0.38,
       worldPoint.z,
     );
     handles.projectionLabel.position.set(p.x, p.y + 0.34, p.z);
-    handles.focalLabel.position.set(-0.6, -0.42, focalLength / 2);
     handles.planeTooltip.position.z = focalLength + 0.03;
     handles.planeValue.position.z = focalLength + 0.03;
     handles.planeValue.element.innerHTML = renderMath(
@@ -903,12 +867,6 @@ export function ProjectionLab() {
     const outline =
       handles.imagePlaneOutline.material as THREE.LineBasicMaterial;
     outline.opacity = planeActive ? 0.72 : planeEngaged ? 0.52 : 0.3;
-    handles.focalMaterial.opacity = planeActive
-      ? 0.78
-      : planeEngaged
-        ? 0.56
-        : 0.34;
-
     const rayLines = handles.sightline.children as Line2[];
     (rayLines[0].material as LineMaterial).opacity = planeActive ? 0.18 : 0.12;
     (rayLines[1].material as LineMaterial).linewidth = planeActive ? 3.25 : 2.7;
