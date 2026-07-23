@@ -45,7 +45,7 @@ type SceneHandles = {
   origin: THREE.Mesh;
   imagePlane: THREE.Mesh;
   imagePlaneHit: THREE.Mesh;
-  imagePlaneOutline: THREE.LineSegments;
+  imagePlaneOutline: Line2;
   imageAxes: THREE.Group;
   planeNormal: THREE.ArrowHelper;
   axes: THREE.Group;
@@ -89,6 +89,10 @@ const MAX_FOCAL_LENGTH = 3.2;
 const FOCAL_STEP = 0.05;
 const PLANE_WIDTH = 7.2;
 const PLANE_HEIGHT = 5.4;
+const AXIS_LINE_WIDTH = 1.28;
+const IMAGE_FRAME_LINE_WIDTH = 1.32;
+const IMAGE_GUIDE_LINE_WIDTH = 0.88;
+const AXIS_ARROWHEAD_SCALE = 1.12;
 
 function format(value: number) {
   const normalized = Math.abs(value) < 0.005 ? 0 : value;
@@ -106,10 +110,13 @@ function renderMath(expression: string) {
 function createLine(
   start: THREE.Vector3,
   end: THREE.Vector3,
-  material: THREE.LineBasicMaterial,
+  material: LineMaterial,
 ) {
-  const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
-  return new THREE.Line(geometry, material);
+  const geometry = new LineGeometry();
+  geometry.setPositions([...start.toArray(), ...end.toArray()]);
+  const line = new Line2(geometry, material);
+  line.computeLineDistances();
+  return line;
 }
 
 function createProjectionLine(width: number, opacity: number) {
@@ -211,15 +218,26 @@ export function ProjectionLab() {
     controls.maxDistance = 30;
     controls.target.set(0, 0, -1.5);
 
-    const structureMaterial = new THREE.LineBasicMaterial({
+    const structureMaterial = new LineMaterial({
       color: 0xeceee9,
+      linewidth: IMAGE_FRAME_LINE_WIDTH,
       transparent: true,
       opacity: 0.3,
+      worldUnits: false,
     });
-    const axisMaterial = new THREE.LineBasicMaterial({
+    const axisMaterial = new LineMaterial({
       color: 0xeceee9,
+      linewidth: AXIS_LINE_WIDTH,
       transparent: true,
       opacity: 0.34,
+      worldUnits: false,
+    });
+    const imageGuideMaterial = new LineMaterial({
+      color: 0xeceee9,
+      linewidth: IMAGE_GUIDE_LINE_WIDTH,
+      transparent: true,
+      opacity: 0.34,
+      worldUnits: false,
     });
 
     const ambient = new THREE.HemisphereLight(0xdfe8e1, 0x111713, 1.75);
@@ -260,10 +278,29 @@ export function ProjectionLab() {
     imagePlaneHit.position.z = INITIAL_FOCAL_LENGTH;
     scene.add(imagePlaneHit);
 
-    const imagePlaneOutline = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.PlaneGeometry(PLANE_WIDTH, PLANE_HEIGHT)),
+    const imagePlaneOutlineGeometry = new LineGeometry();
+    imagePlaneOutlineGeometry.setPositions([
+      -PLANE_WIDTH / 2,
+      -PLANE_HEIGHT / 2,
+      0,
+      PLANE_WIDTH / 2,
+      -PLANE_HEIGHT / 2,
+      0,
+      PLANE_WIDTH / 2,
+      PLANE_HEIGHT / 2,
+      0,
+      -PLANE_WIDTH / 2,
+      PLANE_HEIGHT / 2,
+      0,
+      -PLANE_WIDTH / 2,
+      -PLANE_HEIGHT / 2,
+      0,
+    ]);
+    const imagePlaneOutline = new Line2(
+      imagePlaneOutlineGeometry,
       structureMaterial,
     );
+    imagePlaneOutline.computeLineDistances();
     scene.add(imagePlaneOutline);
 
     const imageAxes = new THREE.Group();
@@ -271,12 +308,12 @@ export function ProjectionLab() {
       createLine(
         new THREE.Vector3(-PLANE_WIDTH / 2, 0, 0),
         new THREE.Vector3(PLANE_WIDTH / 2, 0, 0),
-        axisMaterial,
+        imageGuideMaterial,
       ),
       createLine(
         new THREE.Vector3(0, -PLANE_HEIGHT / 2, 0),
         new THREE.Vector3(0, PLANE_HEIGHT / 2, 0),
-        axisMaterial,
+        imageGuideMaterial,
       ),
     );
     const planeNormal = new THREE.ArrowHelper(
@@ -284,8 +321,8 @@ export function ProjectionLab() {
       new THREE.Vector3(0, 0, 0),
       1.05,
       0x72b83c,
-      0.22,
-      0.11,
+      0.22 * AXIS_ARROWHEAD_SCALE,
+      0.11 * AXIS_ARROWHEAD_SCALE,
     );
     const planeNormalLine = planeNormal.line.material as THREE.LineBasicMaterial;
     planeNormalLine.transparent = true;
@@ -296,18 +333,34 @@ export function ProjectionLab() {
     imageAxes.add(planeNormal);
     scene.add(imageAxes);
 
+    const zAxisHeadLength = 0.34 * AXIS_ARROWHEAD_SCALE;
+    const zAxisHeadWidth = 0.16 * AXIS_ARROWHEAD_SCALE;
+    const zAxisTip = 5.6;
+    const zAxis = new THREE.Group();
+    zAxis.add(
+      createLine(
+        new THREE.Vector3(0, 0, -11),
+        new THREE.Vector3(0, 0, zAxisTip - zAxisHeadLength),
+        axisMaterial,
+      ),
+    );
+    const zAxisCone = new THREE.Mesh(
+      new THREE.ConeGeometry(zAxisHeadWidth / 2, zAxisHeadLength, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0xeceee9,
+        transparent: true,
+        opacity: 0.34,
+      }),
+    );
+    zAxisCone.position.set(0, 0, zAxisTip - zAxisHeadLength / 2);
+    zAxisCone.rotation.x = Math.PI / 2;
+    zAxis.add(zAxisCone);
+
     const axes = new THREE.Group();
     axes.add(
       createLine(new THREE.Vector3(-4.4, 0, 0), new THREE.Vector3(4.4, 0, 0), axisMaterial),
       createLine(new THREE.Vector3(0, -3.4, 0), new THREE.Vector3(0, 3.4, 0), axisMaterial),
-      new THREE.ArrowHelper(
-        new THREE.Vector3(0, 0, 1),
-        new THREE.Vector3(0, 0, -11),
-        16.6,
-        0xeceee9,
-        0.34,
-        0.16,
-      ),
+      zAxis,
     );
     scene.add(axes);
 
@@ -356,11 +409,11 @@ export function ProjectionLab() {
     scene.add(projectedPointMesh);
 
     const pointHalo = new THREE.Mesh(
-      new THREE.SphereGeometry(0.31, 24, 24),
+      new THREE.SphereGeometry(0.33, 24, 24),
       new THREE.MeshBasicMaterial({
         color: 0xf2c75b,
         transparent: true,
-        opacity: 0.1,
+        opacity: 0.16,
         depthWrite: false,
       }),
     );
@@ -389,11 +442,11 @@ export function ProjectionLab() {
     scene.add(surface);
 
     const objectHalo = new THREE.Mesh(
-      new THREE.SphereGeometry(OBJECT_RADIUS * 1.075, 48, 48),
+      new THREE.SphereGeometry(OBJECT_RADIUS * 1.09, 48, 48),
       new THREE.MeshBasicMaterial({
         color: 0x5ea2d4,
         transparent: true,
-        opacity: 0.11,
+        opacity: 0.15,
         depthWrite: false,
         side: THREE.BackSide,
       }),
@@ -447,6 +500,9 @@ export function ProjectionLab() {
       labelRenderer.setSize(width, height);
       (sightlineCore.material as LineMaterial).resolution.set(width, height);
       (sightlineGlow.material as LineMaterial).resolution.set(width, height);
+      structureMaterial.resolution.set(width, height);
+      axisMaterial.resolution.set(width, height);
+      imageGuideMaterial.resolution.set(width, height);
     };
 
     const defaultCamera = new THREE.Vector3(9.5, 6.2, 11.5);
@@ -557,8 +613,8 @@ export function ProjectionLab() {
     const setObjectActive = (active: boolean, dragging = false) => {
       objectHalo.visible = active;
       (objectHalo.material as THREE.MeshBasicMaterial).opacity = dragging
-        ? 0.18
-        : 0.11;
+        ? 0.22
+        : 0.15;
     };
 
     let frame = 0;
@@ -968,7 +1024,7 @@ export function ProjectionLab() {
           : 0.085;
 
     const outline =
-      handles.imagePlaneOutline.material as THREE.LineBasicMaterial;
+      handles.imagePlaneOutline.material as LineMaterial;
     outline.opacity = planeActive
       ? isLight
         ? 0.86
@@ -1077,7 +1133,7 @@ export function ProjectionLab() {
     originMaterial.color.setHex(isLight ? 0x1b1f1c : 0xf5f5f0);
 
     (
-      handles.imagePlaneOutline.material as THREE.LineBasicMaterial
+      handles.imagePlaneOutline.material as LineMaterial
     ).color.setHex(structure);
 
     handles.ambient.color.setHex(isLight ? 0xffffff : 0xdfe8e1);
