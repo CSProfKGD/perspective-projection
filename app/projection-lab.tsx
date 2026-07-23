@@ -22,6 +22,10 @@ import {
   pointOnSphere,
   type SurfaceAngles,
 } from "./lib/surface";
+import {
+  DISSOLVE_DURATION_MS,
+  dissolveValue,
+} from "./lib/dissolve";
 
 type VisibilityState = {
   axes: boolean;
@@ -53,6 +57,7 @@ type SceneHandles = {
   render: () => void;
   resetView: () => void;
   resetInteractionSession: () => void;
+  setVisibilityTargets: (visibility: VisibilityState) => void;
   setPointActive: (active: boolean) => void;
   pulseProjection: () => void;
 };
@@ -403,7 +408,7 @@ export function ProjectionLab() {
       PLANE_HEIGHT / 2,
       INITIAL_FOCAL_LENGTH,
     );
-    planeValue.visible = false;
+    planeValue.visible = true;
     scene.add(planeValue);
 
     const resize = () => {
@@ -429,6 +434,74 @@ export function ProjectionLab() {
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+    type DissolveState = {
+      current: number;
+      from: number;
+      target: number;
+      startedAt: number;
+    };
+    const dissolveState: Record<keyof VisibilityState, DissolveState> = {
+      axes: { current: 1, from: 1, target: 1, startedAt: 0 },
+      labels: { current: 1, from: 1, target: 1, startedAt: 0 },
+      sightline: { current: 1, from: 1, target: 1, startedAt: 0 },
+    };
+
+    const collectMaterials = (group: THREE.Object3D) => {
+      const materials = new Set<THREE.Material>();
+      group.traverse((object) => {
+        const material = (object as THREE.Mesh).material;
+        if (!material) return;
+        const entries = Array.isArray(material) ? material : [material];
+        entries.forEach((entry) => {
+          entry.transparent = true;
+          entry.userData.dissolveBaseOpacity = entry.opacity;
+          materials.add(entry);
+        });
+      });
+      return [...materials];
+    };
+
+    const collectLabelElements = (group: THREE.Object3D) => {
+      const elements: HTMLElement[] = [];
+      group.traverse((object) => {
+        if (object instanceof CSS2DObject) elements.push(object.element);
+      });
+      return elements;
+    };
+
+    const axisMaterials = collectMaterials(axes);
+    collectMaterials(imageAxes).forEach((material) => {
+      if (!axisMaterials.includes(material)) axisMaterials.push(material);
+    });
+    const rayMaterials = collectMaterials(sightline);
+    const axisLabelElements = collectLabelElements(axes);
+    const labelElements = collectLabelElements(allLabels);
+
+    const setVisibilityTargets = (next: VisibilityState) => {
+      const now = performance.now();
+      (Object.keys(next) as Array<keyof VisibilityState>).forEach((key) => {
+        const state = dissolveState[key];
+        const target = next[key] ? 1 : 0;
+        if (state.target === target) return;
+        state.from = state.current;
+        state.target = target;
+        state.startedAt = now;
+        if (reducedMotion) state.current = target;
+      });
+    };
+
+    const applyMaterialDissolve = (
+      materials: THREE.Material[],
+      factor: number,
+    ) => {
+      materials.forEach((material) => {
+        const baseOpacity =
+          typeof material.userData.dissolveBaseOpacity === "number"
+            ? material.userData.dissolveBaseOpacity
+            : 1;
+        material.opacity = baseOpacity * factor;
+      });
+    };
 
     const resetView = () => {
       if (reducedMotion) {
@@ -447,7 +520,8 @@ export function ProjectionLab() {
     const setPointActive = (active: boolean) => {
       pointHalo.visible = active;
       (sightlineCore.material as LineMaterial).linewidth = active ? 3.35 : 2.7;
-      (sightlineGlow.material as LineMaterial).opacity = active ? 0.18 : 0.12;
+      (sightlineGlow.material as LineMaterial).userData.dissolveBaseOpacity =
+        active ? 0.18 : 0.12;
     };
 
     const pulseProjection = () => {
@@ -457,6 +531,33 @@ export function ProjectionLab() {
     let frame = 0;
     const render = () => {
       const now = performance.now();
+      (Object.keys(dissolveState) as Array<keyof VisibilityState>).forEach(
+        (key) => {
+          const state = dissolveState[key];
+          if (state.current === state.target) return;
+          state.current = dissolveValue(
+            state.from,
+            state.target,
+            now - state.startedAt,
+            reducedMotion ? 0 : DISSOLVE_DURATION_MS,
+          );
+          if (Math.abs(state.current - state.target) < 0.001) {
+            state.current = state.target;
+          }
+        },
+      );
+      applyMaterialDissolve(axisMaterials, dissolveState.axes.current);
+      applyMaterialDissolve(rayMaterials, dissolveState.sightline.current);
+      axisLabelElements.forEach((element) => {
+        element.style.opacity = String(0.76 * dissolveState.axes.current);
+      });
+      [...labelElements, planeTooltip.element].forEach((element) => {
+        element.style.opacity = String(dissolveState.labels.current);
+      });
+      planeValue.element.style.setProperty(
+        "--label-group-opacity",
+        String(dissolveState.labels.current),
+      );
       if (cameraTween) {
         const progress = Math.min((now - cameraTween.startedAt) / 620, 1);
         const eased = 1 - Math.pow(1 - progress, 4);
@@ -712,6 +813,7 @@ export function ProjectionLab() {
       render,
       resetView,
       resetInteractionSession,
+      setVisibilityTargets,
       setPointActive,
       pulseProjection,
     };
@@ -800,13 +902,11 @@ export function ProjectionLab() {
     );
 
     handles.projectedPoint.visible = true;
-    handles.sightline.visible = visibility.sightline;
   }, [
     worldPoint,
     objectCentre,
     focalLength,
     projection,
-    visibility.sightline,
   ]);
 
   useEffect(() => {
@@ -833,7 +933,8 @@ export function ProjectionLab() {
       handles.imagePlaneOutline.material as THREE.LineBasicMaterial;
     outline.opacity = planeActive ? 0.72 : planeEngaged ? 0.52 : 0.3;
     const rayLines = handles.sightline.children as Line2[];
-    (rayLines[0].material as LineMaterial).opacity = planeActive ? 0.18 : 0.12;
+    (rayLines[0].material as LineMaterial).userData.dissolveBaseOpacity =
+      planeActive ? 0.18 : 0.12;
     (rayLines[1].material as LineMaterial).linewidth = planeActive ? 3.25 : 2.7;
 
     handles.planeTooltip.visible =
@@ -856,10 +957,7 @@ export function ProjectionLab() {
   useEffect(() => {
     const handles = sceneRef.current;
     if (!handles) return;
-    handles.axes.visible = visibility.axes;
-    handles.imageAxes.visible = visibility.axes;
-    handles.allLabels.visible = visibility.labels;
-    handles.sightline.visible = visibility.sightline;
+    handles.setVisibilityTargets(visibility);
   }, [visibility]);
 
   useEffect(() => {

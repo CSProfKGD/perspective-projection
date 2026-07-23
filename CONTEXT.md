@@ -109,6 +109,7 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 - Keep labels readable against surfaces and prevent avoidable overlap while the observer camera moves.
 - Preserve depth cues with opacity, line weight, depth ordering, and restrained lighting. Avoid decorative textures, heavy panels, excessive glow, or gratuitous colour.
 - Use short easing only where it clarifies a state change, such as a projection updating after a focal-length adjustment. Do not add perpetual motion.
+- When Axes, Labels, or Ray visibility is toggled, dissolve the affected scene elements smoothly in or out rather than switching them abruptly.
 - Respect reduced-motion preferences by making nonessential transitions effectively immediate.
 
 The light theme should preserve the same semantic colour roles and adequate contrast rather than reinterpret the scene with a new palette.

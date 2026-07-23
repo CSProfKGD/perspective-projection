@@ -258,7 +258,7 @@ h1 {
 }
 
 .scene-label.plane-value.is-visible {
-  opacity: 1;
+  opacity: var(--label-group-opacity, 1);
 }
 
 .plane-accessibility-control {
@@ -401,6 +401,10 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .scene-label {
+    transition-duration: 0.01ms;
+  }
+
   *,
   *::before,
   *::after {
