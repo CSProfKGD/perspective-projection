@@ -51,11 +51,14 @@ type SceneHandles = {
   axes: THREE.Group;
   surface: THREE.Mesh;
   objectHalo: THREE.Mesh;
+  pointGlows: THREE.Group;
   sightline: THREE.Group;
+  labelLeaders: THREE.Group;
+  worldLabelLeader: Line2;
+  projectionLabelLeader: Line2;
   ambient: THREE.HemisphereLight;
   key: THREE.DirectionalLight;
   rim: THREE.DirectionalLight;
-  planeTooltip: CSS2DObject;
   planeValue: CSS2DObject;
   projectionLabel: CSS2DObject;
   worldLabel: CSS2DObject;
@@ -75,7 +78,7 @@ type ThemeTransitionDocument = Document & {
   };
 };
 
-const INITIAL_OBJECT_CENTRE: Vector3Data = { x: 1.8, y: 0.2, z: -6.6 };
+const INITIAL_OBJECT_CENTRE: Vector3Data = { x: 1.55, y: 0.2, z: -6.15 };
 const OBJECT_RADIUS = 1.35;
 const INITIAL_ANGLES: SurfaceAngles = { azimuth: 150, elevation: 30 };
 const INITIAL_POINT = pointOnSphere(
@@ -87,16 +90,24 @@ const INITIAL_FOCAL_LENGTH = 2.1;
 const MIN_FOCAL_LENGTH = 0.8;
 const MAX_FOCAL_LENGTH = 3.2;
 const FOCAL_STEP = 0.05;
-const PLANE_WIDTH = 7.2;
+const PLANE_WIDTH = 6.65;
 const PLANE_HEIGHT = 5.4;
 const AXIS_LINE_WIDTH = 1.28;
 const IMAGE_FRAME_LINE_WIDTH = 1.32;
 const IMAGE_GUIDE_LINE_WIDTH = 0.88;
-const AXIS_ARROWHEAD_SCALE = 1.05;
+const AXIS_ARROWHEAD_SCALE = 0.96;
 const PLANE_NORMAL_ARROWHEAD_SCALE = 1.12;
 const AXIS_ARROWHEAD_LENGTH = 0.34 * AXIS_ARROWHEAD_SCALE;
 const AXIS_ARROWHEAD_WIDTH = 0.16 * AXIS_ARROWHEAD_SCALE;
 const AXIS_ARROWHEAD_SHAFT_GAP = 0.025;
+const LABEL_LEADER_LINE_WIDTH = 1;
+
+function criticallyDampedProgress(elapsed: number, duration: number) {
+  const normalized = Math.min(Math.max(elapsed / duration, 0), 1);
+  const response = 1 - (1 + 7 * normalized) * Math.exp(-7 * normalized);
+  const endpoint = 1 - 8 * Math.exp(-7);
+  return Math.min(response / endpoint, 1);
+}
 
 function format(value: number) {
   const normalized = Math.abs(value) < 0.005 ? 0 : value;
@@ -188,7 +199,6 @@ export function ProjectionLab() {
   const [planeHovered, setPlaneHovered] = useState(false);
   const [planeDragging, setPlaneDragging] = useState(false);
   const [planeKeyboardFocus, setPlaneKeyboardFocus] = useState(false);
-  const [planeTooltipVisible, setPlaneTooltipVisible] = useState(false);
   const [planeValueVisible, setPlaneValueVisible] = useState(false);
   const planeValueTimerRef = useRef<number | null>(null);
   const resetFrameRef = useRef<number | null>(null);
@@ -226,7 +236,7 @@ export function ProjectionLab() {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-    camera.position.set(9.5, 6.2, 11.5);
+    camera.position.set(9.2, 5.9, 11.1);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -249,7 +259,7 @@ export function ProjectionLab() {
     controls.dampingFactor = 0.075;
     controls.minDistance = 8;
     controls.maxDistance = 30;
-    controls.target.set(0, 0, -1.5);
+    controls.target.set(0, 0, -1.35);
 
     const structureMaterial = new LineMaterial({
       color: 0xeceee9,
@@ -270,6 +280,15 @@ export function ProjectionLab() {
       linewidth: IMAGE_GUIDE_LINE_WIDTH,
       transparent: true,
       opacity: 0.34,
+      worldUnits: false,
+    });
+    const labelLeaderMaterial = new LineMaterial({
+      color: 0xeceee9,
+      linewidth: LABEL_LEADER_LINE_WIDTH,
+      transparent: true,
+      opacity: 0.13,
+      depthTest: false,
+      depthWrite: false,
       worldUnits: false,
     });
     const ambient = new THREE.HemisphereLight(0xdfe8e1, 0x111713, 1.75);
@@ -403,7 +422,7 @@ export function ProjectionLab() {
     scene.add(axes);
 
     const axisLabels = [
-      { text: "\\hat{X}", position: new THREE.Vector3(4.55, 0, 0) },
+      { text: "\\hat{X}", position: new THREE.Vector3(4.58, 0, 0) },
       { text: "\\hat{Y}", position: new THREE.Vector3(0, 3.58, 0) },
       { text: "\\hat{Z}", position: new THREE.Vector3(0, 0, 5.78) },
     ];
@@ -424,10 +443,10 @@ export function ProjectionLab() {
       new THREE.MeshPhysicalMaterial({
         color: 0xf2c75b,
         emissive: 0x3d2a08,
-        emissiveIntensity: 0.38,
-        roughness: 0.28,
+        emissiveIntensity: 0.54,
+        roughness: 0.25,
         metalness: 0.12,
-        clearcoat: 0.48,
+        clearcoat: 0.52,
         clearcoatRoughness: 0.22,
       }),
     );
@@ -438,13 +457,37 @@ export function ProjectionLab() {
       new THREE.MeshPhysicalMaterial({
         color: 0xf2c75b,
         emissive: 0x4a340b,
-        emissiveIntensity: 0.52,
-        roughness: 0.34,
+        emissiveIntensity: 0.62,
+        roughness: 0.3,
         metalness: 0.08,
-        clearcoat: 0.32,
+        clearcoat: 0.38,
       }),
     );
     scene.add(projectedPointMesh);
+
+    const pointGlows = new THREE.Group();
+    const worldPointGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.265, 24, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0xf2c75b,
+        transparent: true,
+        opacity: 0.09,
+        depthWrite: false,
+        side: THREE.BackSide,
+      }),
+    );
+    const projectedPointGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.19, 24, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0xf2c75b,
+        transparent: true,
+        opacity: 0.1,
+        depthWrite: false,
+        side: THREE.BackSide,
+      }),
+    );
+    pointGlows.add(worldPointGlow, projectedPointGlow);
+    scene.add(pointGlows);
 
     const pointHalo = new THREE.Mesh(
       new THREE.SphereGeometry(0.33, 24, 24),
@@ -464,11 +507,11 @@ export function ProjectionLab() {
         color: 0x397fb5,
         transparent: true,
         opacity: 0.76,
-        roughness: 0.52,
+        roughness: 0.46,
         metalness: 0.03,
-        clearcoat: 0.12,
-        clearcoatRoughness: 0.72,
-        sheen: 0.16,
+        clearcoat: 0.18,
+        clearcoatRoughness: 0.66,
+        sheen: 0.22,
         sheenColor: new THREE.Color(0x83a9c5),
       }),
     );
@@ -494,8 +537,8 @@ export function ProjectionLab() {
     scene.add(objectHalo);
 
     const sightline = new THREE.Group();
-    const sightlineGlow = createProjectionLine(7.5, 0.12);
-    const sightlineCore = createProjectionLine(2.7, 0.98);
+    const sightlineGlow = createProjectionLine(8.6, 0.15);
+    const sightlineCore = createProjectionLine(2.85, 1);
     sightline.add(sightlineGlow, sightlineCore);
     scene.add(sightline);
 
@@ -510,13 +553,19 @@ export function ProjectionLab() {
     allLabels.add(projectionLabel);
     scene.add(allLabels);
 
-    const planeTooltip = createLabel(
-      String.raw`\text{Drag to change focal length}`,
-      "plane-tooltip",
+    const labelLeaders = new THREE.Group();
+    const worldLabelLeader = createLine(
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      labelLeaderMaterial,
     );
-    planeTooltip.position.set(1.75, 1.72, INITIAL_FOCAL_LENGTH);
-    planeTooltip.visible = false;
-    scene.add(planeTooltip);
+    const projectionLabelLeader = createLine(
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      labelLeaderMaterial,
+    );
+    labelLeaders.add(worldLabelLeader, projectionLabelLeader);
+    scene.add(labelLeaders);
 
     const planeValue = createLabel(
       String.raw`f=2.10`,
@@ -541,10 +590,11 @@ export function ProjectionLab() {
       structureMaterial.resolution.set(width, height);
       axisMaterial.resolution.set(width, height);
       imageGuideMaterial.resolution.set(width, height);
+      labelLeaderMaterial.resolution.set(width, height);
     };
 
-    const defaultCamera = new THREE.Vector3(9.5, 6.2, 11.5);
-    const defaultTarget = new THREE.Vector3(0, 0, -1.5);
+    const defaultCamera = new THREE.Vector3(9.2, 5.9, 11.1);
+    const defaultTarget = new THREE.Vector3(0, 0, -1.35);
     let cameraTween:
       | {
           startedAt: number;
@@ -598,6 +648,7 @@ export function ProjectionLab() {
       if (!axisMaterials.includes(material)) axisMaterials.push(material);
     });
     const rayMaterials = collectMaterials(sightline);
+    const labelLeaderMaterials = collectMaterials(labelLeaders);
     const axisLabelElements = collectLabelElements(axes);
     const labelElements = collectLabelElements(allLabels);
 
@@ -643,9 +694,9 @@ export function ProjectionLab() {
 
     const setPointActive = (active: boolean) => {
       pointHalo.visible = active;
-      (sightlineCore.material as LineMaterial).linewidth = active ? 3.35 : 2.7;
+      (sightlineCore.material as LineMaterial).linewidth = active ? 3.35 : 2.85;
       (sightlineGlow.material as LineMaterial).userData.dissolveBaseOpacity =
-        active ? 0.18 : 0.12;
+        active ? 0.2 : 0.15;
     };
 
     const setObjectActive = (active: boolean, dragging = false) => {
@@ -675,10 +726,14 @@ export function ProjectionLab() {
       );
       applyMaterialDissolve(axisMaterials, dissolveState.axes.current);
       applyMaterialDissolve(rayMaterials, dissolveState.sightline.current);
+      applyMaterialDissolve(
+        labelLeaderMaterials,
+        dissolveState.labels.current,
+      );
       axisLabelElements.forEach((element) => {
-        element.style.opacity = String(0.76 * dissolveState.axes.current);
+        element.style.opacity = String(0.68 * dissolveState.axes.current);
       });
-      [...labelElements, planeTooltip.element].forEach((element) => {
+      labelElements.forEach((element) => {
         element.style.opacity = String(dissolveState.labels.current);
       });
       planeValue.element.style.setProperty(
@@ -686,8 +741,9 @@ export function ProjectionLab() {
         String(dissolveState.labels.current),
       );
       if (cameraTween) {
-        const progress = Math.min((now - cameraTween.startedAt) / 620, 1);
-        const eased = 1 - Math.pow(1 - progress, 4);
+        const elapsed = now - cameraTween.startedAt;
+        const progress = Math.min(elapsed / 680, 1);
+        const eased = criticallyDampedProgress(elapsed, 680);
         camera.position.lerpVectors(
           cameraTween.fromPosition,
           defaultCamera,
@@ -704,6 +760,9 @@ export function ProjectionLab() {
         camera.position.distanceTo(projectedPointMesh.position) /
         projectedPointReferenceDistance;
       projectedPointMesh.scale.setScalar(projectedPointScale);
+      projectedPointGlow.scale.setScalar(projectedPointScale);
+      worldPointGlow.position.copy(worldPointMesh.position);
+      projectedPointGlow.position.copy(projectedPointMesh.position);
       pointHalo.position.copy(worldPointMesh.position);
       objectHalo.position.copy(surface.position);
       controls.update();
@@ -723,13 +782,6 @@ export function ProjectionLab() {
     let dragStartY = 0;
     let planeDragStartAxis = INITIAL_FOCAL_LENGTH;
     let planeDragStartFocal = INITIAL_FOCAL_LENGTH;
-    let planeHasBeenDragged = false;
-    let tooltipTimer: number | null = null;
-
-    const clearTooltipTimer = () => {
-      if (tooltipTimer !== null) window.clearTimeout(tooltipTimer);
-      tooltipTimer = null;
-    };
 
     // Find the closest point on the camera-space optical axis to the
     // observer ray. Changes in this parameter give a view-independent,
@@ -767,8 +819,6 @@ export function ProjectionLab() {
         dragMode = "plane";
         planeDragStartAxis = axisParameter;
         planeDragStartFocal = imagePlane.position.z;
-        clearTooltipTimer();
-        setPlaneTooltipVisible(false);
         setPlaneHovered(false);
         setPlaneDragging(true);
         setPlaneValueVisible(true);
@@ -808,15 +858,6 @@ export function ProjectionLab() {
             : "grab";
         setPointActive(overPoint);
         setPlaneHovered(overPlane);
-        if (overPlane && !planeHasBeenDragged && tooltipTimer === null) {
-          tooltipTimer = window.setTimeout(() => {
-            setPlaneTooltipVisible(true);
-            tooltipTimer = null;
-          }, 320);
-        } else if (!overPlane) {
-          clearTooltipTimer();
-          setPlaneTooltipVisible(false);
-        }
         setObjectActive(overObject && !overPoint && !overPlane);
         return;
       }
@@ -887,7 +928,6 @@ export function ProjectionLab() {
       setPointActive(false);
       setObjectActive(false);
       if (completedMode === "plane") {
-        planeHasBeenDragged = true;
         setPlaneDragging(false);
         setPlaneValueVisible(false);
       }
@@ -899,11 +939,8 @@ export function ProjectionLab() {
     };
 
     const resetInteractionSession = () => {
-      planeHasBeenDragged = false;
-      clearTooltipTimer();
       setPlaneHovered(false);
       setPlaneDragging(false);
-      setPlaneTooltipVisible(false);
       setPlaneValueVisible(false);
       setObjectActive(false);
     };
@@ -912,9 +949,7 @@ export function ProjectionLab() {
       if (dragMode) return;
       setPointActive(false);
       setObjectActive(false);
-      clearTooltipTimer();
       setPlaneHovered(false);
-      setPlaneTooltipVisible(false);
     };
 
     renderer.domElement.addEventListener("pointerdown", pointerDown);
@@ -944,11 +979,14 @@ export function ProjectionLab() {
       axes,
       surface,
       objectHalo,
+      pointGlows,
       sightline,
+      labelLeaders,
+      worldLabelLeader,
+      projectionLabelLeader,
       ambient,
       key,
       rim,
-      planeTooltip,
       planeValue,
       projectionLabel,
       worldLabel,
@@ -965,7 +1003,6 @@ export function ProjectionLab() {
     return () => {
       sceneRef.current = null;
       window.cancelAnimationFrame(frame);
-      clearTooltipTimer();
       window.removeEventListener("resize", resize);
       renderer.domElement.removeEventListener("pointerdown", pointerDown);
       renderer.domElement.removeEventListener("pointermove", pointerMove);
@@ -1011,18 +1048,35 @@ export function ProjectionLab() {
     });
 
     const worldLabelPosition = new THREE.Vector3(
-      worldPoint.x,
-      worldPoint.y + 0.72,
+      worldPoint.x + (worldPoint.x >= 0 ? 0.16 : -0.16),
+      worldPoint.y + 0.66,
       worldPoint.z,
     );
     const projectionLabelPosition = new THREE.Vector3(
-      p.x,
-      p.y + 0.68,
+      p.x + (p.x >= 0 ? 0.14 : -0.14),
+      p.y + 0.61,
       p.z,
     );
     handles.worldLabel.position.copy(worldLabelPosition);
     handles.projectionLabel.position.copy(projectionLabelPosition);
-    handles.planeTooltip.position.z = focalLength + 0.03;
+    (
+      handles.worldLabelLeader.geometry as LineGeometry
+    ).setPositions([
+      worldPoint.x,
+      worldPoint.y,
+      worldPoint.z,
+      ...worldLabelPosition.toArray(),
+    ]);
+    handles.worldLabelLeader.computeLineDistances();
+    (
+      handles.projectionLabelLeader.geometry as LineGeometry
+    ).setPositions([
+      p.x,
+      p.y,
+      p.z,
+      ...projectionLabelPosition.toArray(),
+    ]);
+    handles.projectionLabelLeader.computeLineDistances();
     handles.planeValue.position.z = focalLength + 0.03;
     handles.planeValue.element.innerHTML = renderMath(
       `f=${format(focalLength)}`,
@@ -1059,37 +1113,35 @@ export function ProjectionLab() {
     const plane = handles.imagePlane.material as THREE.MeshPhysicalMaterial;
     plane.opacity = planeActive
       ? isLight
-        ? 0.19
-        : 0.155
+        ? 0.152
+        : 0.124
       : planeEngaged
         ? isLight
-          ? 0.15
-          : 0.12
+          ? 0.12
+          : 0.096
         : isLight
-          ? 0.115
-          : 0.085;
+          ? 0.092
+          : 0.068;
 
     const outline =
       handles.imagePlaneOutline.material as LineMaterial;
     outline.opacity = planeActive
       ? isLight
-        ? 0.86
-        : 0.72
+        ? 0.69
+        : 0.58
       : planeEngaged
         ? isLight
-          ? 0.68
-          : 0.52
+          ? 0.54
+          : 0.42
         : isLight
-          ? 0.5
-          : 0.3;
+          ? 0.4
+          : 0.24;
     outline.userData.dissolveBaseOpacity = outline.opacity;
     const rayLines = handles.sightline.children as Line2[];
     (rayLines[0].material as LineMaterial).userData.dissolveBaseOpacity =
-      planeActive ? 0.18 : 0.12;
-    (rayLines[1].material as LineMaterial).linewidth = planeActive ? 3.25 : 2.7;
+      planeActive ? 0.2 : 0.15;
+    (rayLines[1].material as LineMaterial).linewidth = planeActive ? 3.3 : 2.85;
 
-    handles.planeTooltip.visible =
-      planeTooltipVisible && !planeDragging;
     handles.planeValue.visible = visibility.labels;
     handles.planeValue.element.classList.toggle(
       "is-visible",
@@ -1099,7 +1151,6 @@ export function ProjectionLab() {
     planeDragging,
     planeHovered,
     planeKeyboardFocus,
-    planeTooltipVisible,
     planeValueVisible,
     theme,
     visibility.labels,
@@ -1116,10 +1167,11 @@ export function ProjectionLab() {
     if (!handles) return;
     const isLight = theme === "light";
     const structure = isLight ? 0x4b5158 : 0xeceee9;
-    const green = isLight ? 0x4f8b38 : 0x78b84b;
+    const green = isLight ? 0x4f9138 : 0x86ce55;
     const marker = isLight ? 0xd29418 : 0xf2c75b;
     const surfaceBlue = isLight ? 0x3d82b3 : 0x397fb5;
-    const axisOpacity = isLight ? 0.58 : 0.34;
+    const axisOpacity = isLight ? 0.51 : 0.3;
+    const imageGuideOpacity = isLight ? 0.4 : 0.26;
 
     const updateGroupMaterials = (
       group: THREE.Object3D,
@@ -1143,11 +1195,16 @@ export function ProjectionLab() {
     };
 
     updateGroupMaterials(handles.axes, structure, axisOpacity);
-    updateGroupMaterials(handles.imageAxes, structure, axisOpacity);
+    updateGroupMaterials(handles.imageAxes, structure, imageGuideOpacity);
     updateGroupMaterials(
       handles.planeNormal,
       green,
       isLight ? 0.78 : 0.58,
+    );
+    updateGroupMaterials(
+      handles.labelLeaders,
+      structure,
+      isLight ? 0.16 : 0.13,
     );
 
     handles.sightline.children.forEach((child) => {
@@ -1161,6 +1218,8 @@ export function ProjectionLab() {
     surface.color.setHex(surfaceBlue);
     surface.opacity = isLight ? 0.86 : 0.76;
     surface.sheenColor.setHex(isLight ? 0xb7d3e5 : 0x83a9c5);
+    surface.roughness = isLight ? 0.5 : 0.46;
+    surface.clearcoat = isLight ? 0.14 : 0.18;
     (
       handles.objectHalo.material as THREE.MeshBasicMaterial
     ).color.setHex(isLight ? 0x2f78aa : 0x5ea2d4);
@@ -1172,8 +1231,13 @@ export function ProjectionLab() {
       const pointMaterial = material as THREE.MeshPhysicalMaterial;
       pointMaterial.color.setHex(marker);
       pointMaterial.emissive.setHex(isLight ? 0x2f1d00 : 0x3d2a08);
-      pointMaterial.emissiveIntensity = isLight ? 0.12 : 0.4;
+      pointMaterial.emissiveIntensity = isLight ? 0.16 : 0.56;
     });
+    updateGroupMaterials(
+      handles.pointGlows,
+      marker,
+      isLight ? 0.075 : 0.095,
+    );
 
     const originMaterial = handles.origin.material as THREE.MeshBasicMaterial;
     originMaterial.color.setHex(isLight ? 0x1b1f1c : 0xf5f5f0);
@@ -1292,8 +1356,9 @@ export function ProjectionLab() {
     ).normalize();
 
     const animateReset = (now: number) => {
-      const progress = Math.min((now - startedAt) / 620, 1);
-      const eased = 1 - Math.pow(1 - progress, 4);
+      const elapsed = now - startedAt;
+      const progress = Math.min(elapsed / 680, 1);
+      const eased = criticallyDampedProgress(elapsed, 680);
       const centre = {
         x: THREE.MathUtils.lerp(
           startCentre.x,

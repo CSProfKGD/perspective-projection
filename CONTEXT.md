@@ -96,21 +96,21 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 ## Visual Direction
 
 - Use a visually quiet black or near-black background by default, with only a diffuse green tint around the central construction and a soft edge vignette. Avoid grids, spotlights, bright hotspots, and other decorative background treatments. Retain an optional accessible light theme.
-- Follow a restrained product-demo hierarchy: the world point is primary, followed by the continuous green projection line, projected point, glass-like image plane, camera centre, reference axes, and finally the interface.
+- Follow a restrained product-demo hierarchy that reads from the luminous world point, along the continuous green projection line, through the camera centre, to the luminous projected point. The glass-like image plane, reference axes, and interface should remain visibly subordinate.
 - Draw axes, the optical axis, image-plane outlines, brackets, and mathematical labels primarily in white in dark mode and deep charcoal in light mode.
-- Give the three coordinate axes modestly stronger screen-space strokes, with identical, restrained arrowheads at their positive ends. Keep the image-plane outer frame slightly heavier than its centre guides; the internal guides should remain about two-thirds of the frame weight.
-- Use green for the projection line, matching the reference diagram. Give it the strongest geometric line weight with only a restrained soft halo; construction and reference lines must recede.
-- Use a polished warm yellow for \(\mathbf{P}\) and \(\mathbf{p}\), differentiating them through size, position, and labels as well as colour. Keep the projected marker at a stable screen size as focal length and observer distance change; do not pulse or resize it when projection values update.
-- Set the main coordinate equations and variables in neutral white or graphite, optionally using the marker yellow only for their live numeric tuples. Keep coordinate labels offset above their points without connector lines.
+- Give the three coordinate axes modest screen-space strokes, with identical, understated arrowheads and optically consistent label spacing at their positive ends. Keep the image-plane outer frame slightly heavier than its centre guides; both should remain clearly subordinate to the projection geometry.
+- Use green for the projection line, matching the reference diagram. Give it the strongest geometric line weight with a restrained soft halo; construction and reference lines must recede.
+- Use a polished, subtly luminous warm yellow for \(\mathbf{P}\) and \(\mathbf{p}\), differentiating them through size, position, and labels as well as colour. Keep the projected marker at a stable screen size as focal length and observer distance change; do not pulse or resize it when projection values update.
+- Set the main coordinate equations and variables in neutral white or graphite, using the marker yellow only for their live numeric tuples. Keep their cards compact, offset them away from important geometry, and connect each card to its point with a thin, low-opacity neutral leader.
 - Use blue for the contextual scene surface near \(\mathbf{P}\). Keep its lighting soft, moderately rough, and subordinate to the projection construction. Show a clearly perceptible but restrained blue outer halo while the sphere is hovered or dragged so its direct-manipulation affordance matches the more salient point halo.
 - Render the physical image plane as low-opacity dark glass with faint cool-neutral edges and centre guides rather than a large solid region.
 - Communicate focal length through direct image-plane motion and temporary manipulation feedback rather than a permanent bracket or standalone \(f\) label.
-- Use one compact translucent control pill for visibility toggles. Keep the live point coordinates attached to their geometric labels; show the focal-length value only during direct plane manipulation with restrained fades.
+- Use one compact translucent control pill for visibility toggles. Inactive controls remain neutral and green is reserved for active states. Keep the live point coordinates attached to their geometric labels; show the focal-length value only during direct plane manipulation with restrained fades.
 - Typeset variables in standard mathematical notation, including italic variables and bold vector names where explanatory text distinguishes vectors.
 - Render mathematical symbols and expressions from LaTeX with KaTeX rather than assembling notation from Unicode glyphs.
 - Keep labels readable against surfaces and prevent avoidable overlap while the observer camera moves.
 - Preserve depth cues with opacity, line weight, depth ordering, and restrained lighting. Avoid decorative textures, heavy panels, excessive glow, or gratuitous colour.
-- Use short easing only where it clarifies a state change, such as a projection updating after a focal-length adjustment. Do not add perpetual motion.
+- Use critically damped, non-overshooting motion where animated movement clarifies a state change. Keep direct manipulation immediate and do not add perpetual motion.
 - When Axes, Labels, or Ray visibility is toggled, dissolve the affected scene elements smoothly in or out rather than switching them abruptly.
 - Crossfade between dark and light themes as one restrained presentation transition so the page chrome, labels, lighting, and 3D scene change together rather than flashing between palettes.
 - Respect reduced-motion preferences by making nonessential transitions effectively immediate.
