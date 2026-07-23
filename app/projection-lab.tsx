@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import katex from "katex";
 import * as THREE from "three";
 import {
   CSS2DObject,
@@ -9,7 +10,6 @@ import {
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { projectPoint, type Vector3Data } from "./lib/projection";
 import {
-  anglesOnSphere,
   pointOnSphere,
   type SurfaceAngles,
 } from "./lib/surface";
@@ -61,6 +61,29 @@ function format(value: number) {
   return normalized.toFixed(2);
 }
 
+function renderMath(expression: string) {
+  return katex.renderToString(expression, {
+    throwOnError: false,
+    strict: false,
+    output: "htmlAndMathml",
+  });
+}
+
+function MathText({
+  expression,
+  className,
+}: {
+  expression: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={className}
+      dangerouslySetInnerHTML={{ __html: renderMath(expression) }}
+    />
+  );
+}
+
 function createLine(
   start: THREE.Vector3,
   end: THREE.Vector3,
@@ -70,10 +93,10 @@ function createLine(
   return new THREE.Line(geometry, material);
 }
 
-function createLabel(text: string, className = "") {
+function createLabel(expression: string, className = "") {
   const element = document.createElement("span");
   element.className = `scene-label ${className}`.trim();
-  element.textContent = text;
+  element.innerHTML = renderMath(expression);
   element.setAttribute("aria-hidden", "true");
   return new CSS2DObject(element);
 }
@@ -95,14 +118,14 @@ function Slider({
   step: number;
   onChange: (value: number) => void;
 }) {
-  const id = `slider-${symbol.toLowerCase()}`;
+  const id = `slider-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
   return (
     <div className="slider-control">
       <label className="slider-heading" htmlFor={id}>
         <span>
           {symbol === "f" && <span className="slider-name">Focal length </span>}
-          <span className="slider-symbol">{symbol}</span>
+          <MathText expression={symbol} className="slider-symbol" />
           <span className="sr-only">{label}</span>
         </span>
         <span className="slider-value">{format(value)}</span>
@@ -139,36 +162,6 @@ export function ProjectionLab() {
   const projection = useMemo(
     () => projectPoint(worldPoint, focalLength),
     [worldPoint, focalLength],
-  );
-
-  const surfaceAngles = useMemo(
-    () => anglesOnSphere(worldPoint, objectCentre),
-    [worldPoint, objectCentre],
-  );
-
-  const updateSurfaceAngle = useCallback(
-    (axis: keyof SurfaceAngles, value: number) => {
-      setWorldPoint((current) => {
-        const angles = anglesOnSphere(current, objectCentre);
-        return pointOnSphere(objectCentre, OBJECT_RADIUS, {
-          ...angles,
-          [axis]: value,
-        });
-      });
-    },
-    [objectCentre],
-  );
-
-  const updateObjectCoordinate = useCallback(
-    (axis: keyof Vector3Data, value: number) => {
-      const delta = value - objectCentre[axis];
-      setObjectCentre((current) => ({ ...current, [axis]: value }));
-      setWorldPoint((current) => ({
-        ...current,
-        [axis]: current[axis] + delta,
-      }));
-    },
-    [objectCentre],
   );
 
   useEffect(() => {
@@ -281,9 +274,6 @@ export function ProjectionLab() {
       0.11,
     );
     imageAxes.add(planeNormal);
-    const normalLabel = createLabel("Ẑ ⟂ image plane", "axis");
-    normalLabel.position.set(0.28, 0.22, 1.12);
-    imageAxes.add(normalLabel);
     scene.add(imageAxes);
 
     const axes = new THREE.Group();
@@ -302,10 +292,9 @@ export function ProjectionLab() {
     scene.add(axes);
 
     const axisLabels = [
-      { text: "X̂", position: new THREE.Vector3(4.55, 0, 0) },
-      { text: "Ŷ", position: new THREE.Vector3(0, 3.58, 0) },
-      { text: "Ẑ", position: new THREE.Vector3(0, 0, 5.78) },
-      { text: "optical axis", position: new THREE.Vector3(0, -0.32, -8.7) },
+      { text: "\\hat{X}", position: new THREE.Vector3(4.55, 0, 0) },
+      { text: "\\hat{Y}", position: new THREE.Vector3(0, 3.58, 0) },
+      { text: "\\hat{Z}", position: new THREE.Vector3(0, 0, 5.78) },
     ];
     axisLabels.forEach(({ text, position }) => {
       const label = createLabel(text, "axis");
@@ -376,9 +365,9 @@ export function ProjectionLab() {
     originLabel.position.set(-0.22, 0.27, 0);
     allLabels.add(originLabel);
 
-    const worldLabel = createLabel("P = (X, Y, Z)", "point");
+    const worldLabel = createLabel("\\mathbf{P}=(X,Y,Z)", "point");
     allLabels.add(worldLabel);
-    const projectionLabel = createLabel("p = (x, y, f)", "point");
+    const projectionLabel = createLabel("\\mathbf{p}=(x,y,f)", "point");
     allLabels.add(projectionLabel);
     const focalLabel = createLabel("f", "focal");
     allLabels.add(focalLabel);
@@ -694,18 +683,24 @@ export function ProjectionLab() {
           Live projection <span className="status-dot" aria-hidden="true" />
         </div>
         <p className="formula">
-          <em>x</em> = f X/Z, &nbsp; <em>y</em> = f Y/Z
+          <MathText
+            expression={String.raw`x=f\frac{X}{Z},\qquad y=f\frac{Y}{Z}`}
+          />
         </p>
         <dl className="coordinates">
           <div className="coordinate-row">
-            <dt>P</dt>
+            <dt>
+              <MathText expression={String.raw`\mathbf{P}`} />
+            </dt>
             <dd>
               ({format(worldPoint.x)}, {format(worldPoint.y)},{" "}
               {format(worldPoint.z)})
             </dd>
           </div>
           <div className="coordinate-row">
-            <dt>p</dt>
+            <dt>
+              <MathText expression={String.raw`\mathbf{p}`} />
+            </dt>
             <dd>
               ({format(projected.x)}, {format(projected.y)},{" "}
               {format(projected.z)})
@@ -715,8 +710,10 @@ export function ProjectionLab() {
       </aside>
 
       <p className="interaction-hint">
-        <strong>Drag P</strong> across the object · <strong>drag the ball</strong>{" "}
-        to move it
+        <strong>
+          Drag <MathText expression={String.raw`\mathbf{P}`} />
+        </strong>{" "}
+        across the object · <strong>drag the ball</strong> to move it
         <br />
         Shift-drag the ball for depth · drag empty space to orbit
       </p>
@@ -748,51 +745,6 @@ export function ProjectionLab() {
             max={3.2}
             step={0.05}
             onChange={setFocalLength}
-          />
-          <Slider
-            symbol="θ"
-            label="Point azimuth on the object"
-            value={surfaceAngles.azimuth}
-            min={-180}
-            max={180}
-            step={1}
-            onChange={(value) => updateSurfaceAngle("azimuth", value)}
-          />
-          <Slider
-            symbol="φ"
-            label="Point elevation on the object"
-            value={surfaceAngles.elevation}
-            min={-75}
-            max={75}
-            step={1}
-            onChange={(value) => updateSurfaceAngle("elevation", value)}
-          />
-          <Slider
-            symbol="Xₒ"
-            label="Object X coordinate"
-            value={objectCentre.x}
-            min={-2.8}
-            max={3.2}
-            step={0.05}
-            onChange={(value) => updateObjectCoordinate("x", value)}
-          />
-          <Slider
-            symbol="Yₒ"
-            label="Object Y coordinate"
-            value={objectCentre.y}
-            min={-2.1}
-            max={2.1}
-            step={0.05}
-            onChange={(value) => updateObjectCoordinate("y", value)}
-          />
-          <Slider
-            symbol="Zₒ"
-            label="Object depth"
-            value={objectCentre.z}
-            min={-10}
-            max={-3}
-            step={0.05}
-            onChange={(value) => updateObjectCoordinate("z", value)}
           />
         </div>
       </section>

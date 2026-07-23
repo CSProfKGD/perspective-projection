@@ -27,7 +27,7 @@ The user can:
 
 - Orbit, pan, and zoom the observer view without changing the mathematical camera.
 - Drag \(\mathbf{P}\) across the blue object's surface; ray-surface intersection keeps it on the object while all dependent geometry and live values update continuously.
-- Drag the blue object itself to translate it through 3D while carrying \(\mathbf{P}\) with it. Shift-drag controls depth, and object-coordinate controls provide the keyboard-accessible equivalent.
+- Drag the blue object itself to translate it through 3D while carrying \(\mathbf{P}\) with it. Shift-drag controls depth.
 - Adjust the positive focal length, \(f\), and see the image plane and projection move consistently.
 - Toggle logical groups such as axes, projection geometry, and labels.
 - Switch between the dark default and an accessible light theme.
@@ -104,6 +104,7 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 - Render the physical image plane as a smooth, semi-transparent neutral surface with clearly visible centre axes.
 - Keep the focal-length marker and interval visually tied to \(f\) without turning it into a large control overlay.
 - Typeset variables in standard mathematical notation, including italic variables and bold vector names where explanatory text distinguishes vectors.
+- Render mathematical symbols and expressions from LaTeX with KaTeX rather than assembling notation from Unicode glyphs.
 - Keep labels readable against surfaces and prevent avoidable overlap while the observer camera moves.
 - Preserve depth cues with opacity, line weight, depth ordering, and restrained lighting. Avoid decorative textures, heavy panels, excessive glow, or gratuitous colour.
 - Use short easing only where it clarifies a state change, such as a projection updating after a focal-length adjustment. Do not add perpetual motion.
@@ -116,8 +117,8 @@ The light theme should preserve the same semantic colour roles and adequate cont
 - The observer camera is an inspection tool only. Orbiting, panning, or zooming it must never alter the pinhole camera or projection.
 - Dragging \(\mathbf{P}\) temporarily owns the pointer until release or cancellation so that the scene cannot orbit accidentally during the same gesture.
 - Dragging the blue object translates it in an observer-facing plane; Shift-drag translates it in depth. The world point moves by the same displacement and remains on the object.
-- Point manipulation must use ray-surface intersection for pointer dragging and azimuth/elevation controls for keyboard operation. Both paths keep \(\mathbf{P}\) on the fixed blue object while supporting meaningful changes in transverse position and depth.
-- Focal-length controls must expose a finite, positive range and display the current value with units or normalized scene units.
+- Point manipulation must use ray-surface intersection so \(\mathbf{P}\) remains on the fixed blue object while supporting meaningful changes in transverse position and depth.
+- The focal-length slider is the only numeric slider in the first milestone. It must expose a finite, positive range and display the current value with units or normalized scene units.
 - Essential controls use native, keyboard-operable elements with accessible names and visible focus.
 - Touch targets must be large enough to operate reliably, and control groups must reflow instead of causing horizontal page scrolling.
 - Provide a concise accessible description or status that reports the current world point, focal length, projected point, and invalid state without attempting to duplicate the full spatial experience in prose.

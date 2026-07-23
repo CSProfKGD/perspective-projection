@@ -14,8 +14,10 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@types/katex": "^0.16.8",
     "@types/three": "^0.185.1",
     "drizzle-orm": "0.45.2",
+    "katex": "^0.18.1",
     "next": "16.2.6",
     "react": "19.2.6",
     "react-dom": "19.2.6",

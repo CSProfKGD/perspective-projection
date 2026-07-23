@@ -16,8 +16,7 @@ y=f\frac{Y}{Z}.
 - Drag the blue object to translate it while carrying \(P\).
 - Shift-drag the blue object to move it in depth.
 - Drag empty scene space to orbit and scroll to zoom.
-- Use the focal-length, surface-angle, and object-position sliders for precise
-  or keyboard-accessible control.
+- Use the focal-length slider for precise or keyboard-accessible focal control.
 - Toggle axes, labels, and the sightline or switch between dark and light
   themes.
 
