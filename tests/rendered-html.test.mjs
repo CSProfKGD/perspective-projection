@@ -36,8 +36,13 @@ test("server-renders the perspective projection lab", async () => {
     /Drag the 3D point to see how perspective projection forms an inverted image\./,
   );
   assert.match(html, /Perspective projection/);
-  assert.match(html, /Live projection/);
   assert.match(html, /Focal length/);
+  assert.match(html, /plane-accessibility-control/);
+  assert.match(
+    html,
+    /Drag the point or image plane\. Drag the background to orbit\./,
+  );
+  assert.doesNotMatch(html, /Live projection|slider-control|slider-panel/);
   assert.match(html, /role="status"/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });

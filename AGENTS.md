@@ -49,7 +49,7 @@ The geometry layer must not import Three.js scene objects, DOM elements, or UI m
 - Moving \(\mathbf{P}\) or changing \(f\) must update every dependent element within the same rendered interaction cycle.
 - Constrain the world point to the fixed blue object's surface in the visible half-space and keep focal length positive. Pointer and keyboard manipulation must preserve the surface constraint; clamp or reject input before it reaches an unstable configuration.
 - Resolve point-dragging and observer-orbit gestures predictably. Dragging the point temporarily owns the pointer until release or cancellation.
-- Treat clicks on \(\mathbf{P}\), the blue object, and empty space as distinct gestures: surface-constrained point movement, object translation that carries \(\mathbf{P}\), and observer orbit respectively. Provide a clear depth gesture without adding numeric sliders beyond focal length.
+- Treat clicks on \(\mathbf{P}\), the image plane, the blue object, and empty space as distinct gestures: surface-constrained point movement, optical-axis focal-length adjustment, object translation that carries \(\mathbf{P}\), and observer orbit respectively. Do not add a visible numeric slider.
 - Provide touch-compatible hit targets and a keyboard-accessible alternative for every essential control.
 - Use the screenshot-inspired semantic palette in `CONTEXT.md`: quiet dark background, white structure, green projection line, blue contextual surface, warm point markers, and a translucent neutral image plane. Preserve equivalent contrast in the optional light theme.
 - Keep colour mappings stable and pair colour with notation, position, or shape. Colour alone must not carry meaning.

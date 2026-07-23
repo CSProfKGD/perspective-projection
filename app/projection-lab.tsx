@@ -5,7 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
+  type KeyboardEvent,
 } from "react";
 import katex from "katex";
 import * as THREE from "three";
@@ -38,12 +38,16 @@ type SceneHandles = {
   projectedPoint: THREE.Mesh;
   origin: THREE.Mesh;
   imagePlane: THREE.Mesh;
+  imagePlaneHit: THREE.Mesh;
   imagePlaneOutline: THREE.LineSegments;
   imageAxes: THREE.Group;
   axes: THREE.Group;
   surface: THREE.Mesh;
   sightline: THREE.Group;
   focalGroup: THREE.Group;
+  focalMaterial: THREE.LineBasicMaterial;
+  planeTooltip: CSS2DObject;
+  planeValue: CSS2DObject;
   projectionLabel: CSS2DObject;
   worldLabel: CSS2DObject;
   focalLabel: CSS2DObject;
@@ -51,6 +55,7 @@ type SceneHandles = {
   resize: () => void;
   render: () => void;
   resetView: () => void;
+  resetInteractionSession: () => void;
   setPointActive: (active: boolean) => void;
   pulseProjection: () => void;
 };
@@ -64,6 +69,9 @@ const INITIAL_POINT = pointOnSphere(
   INITIAL_ANGLES,
 );
 const INITIAL_FOCAL_LENGTH = 2.1;
+const MIN_FOCAL_LENGTH = 0.8;
+const MAX_FOCAL_LENGTH = 3.2;
+const FOCAL_STEP = 0.05;
 const PLANE_WIDTH = 7.2;
 const PLANE_HEIGHT = 5.4;
 
@@ -128,51 +136,6 @@ function createLabel(expression: string, className = "") {
   return new CSS2DObject(element);
 }
 
-function Slider({
-  symbol,
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  symbol: string;
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-}) {
-  const id = `slider-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-  const progress = ((value - min) / (max - min)) * 100;
-
-  return (
-    <div className="slider-control">
-      <label className="slider-heading" htmlFor={id}>
-        <span>
-          {symbol === "f" && <span className="slider-name">Focal length </span>}
-          <MathText expression={symbol} className="slider-symbol" />
-          <span className="sr-only">{label}</span>
-        </span>
-        <span className="slider-value">{format(value)}</span>
-      </label>
-      <input
-        id={id}
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        style={{ "--range-progress": `${progress}%` } as CSSProperties}
-        aria-label={label}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </div>
-  );
-}
-
 export function ProjectionLab() {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<SceneHandles | null>(null);
@@ -184,6 +147,17 @@ export function ProjectionLab() {
   const [focalLength, setFocalLength] = useState(INITIAL_FOCAL_LENGTH);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [hasInteracted, setHasInteracted] = useState(false);
+  const [projectionFeedback, setProjectionFeedback] = useState<
+    "point" | "plane" | null
+  >(null);
+  const [planeHovered, setPlaneHovered] = useState(false);
+  const [planeDragging, setPlaneDragging] = useState(false);
+  const [planeKeyboardFocus, setPlaneKeyboardFocus] = useState(false);
+  const [planeTooltipVisible, setPlaneTooltipVisible] = useState(false);
+  const [planeValueVisible, setPlaneValueVisible] = useState(false);
+  const feedbackTimerRef = useRef<number | null>(null);
+  const planeValueTimerRef = useRef<number | null>(null);
+  const resetFrameRef = useRef<number | null>(null);
   const [visibility, setVisibility] = useState<VisibilityState>({
     axes: true,
     labels: true,
@@ -276,6 +250,19 @@ export function ProjectionLab() {
       }),
     );
     scene.add(imagePlane);
+
+    const imagePlaneHit = new THREE.Mesh(
+      new THREE.PlaneGeometry(PLANE_WIDTH * 1.08, PLANE_HEIGHT * 1.08),
+      new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        colorWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    imagePlaneHit.position.z = INITIAL_FOCAL_LENGTH;
+    scene.add(imagePlaneHit);
 
     const imagePlaneOutline = new THREE.LineSegments(
       new THREE.EdgesGeometry(new THREE.PlaneGeometry(PLANE_WIDTH, PLANE_HEIGHT)),
@@ -411,11 +398,16 @@ export function ProjectionLab() {
     sightline.add(sightlineGlow, sightlineCore);
     scene.add(sightline);
 
+    const focalMaterial = new THREE.LineBasicMaterial({
+      color: 0x78b84b,
+      transparent: true,
+      opacity: 0.34,
+    });
     const focalGroup = new THREE.Group();
     focalGroup.add(
-      createLine(new THREE.Vector3(), new THREE.Vector3(), structureMaterial),
-      createLine(new THREE.Vector3(), new THREE.Vector3(), structureMaterial),
-      createLine(new THREE.Vector3(), new THREE.Vector3(), structureMaterial),
+      createLine(new THREE.Vector3(), new THREE.Vector3(), focalMaterial),
+      createLine(new THREE.Vector3(), new THREE.Vector3(), focalMaterial),
+      createLine(new THREE.Vector3(), new THREE.Vector3(), focalMaterial),
     );
     scene.add(focalGroup);
 
@@ -431,6 +423,22 @@ export function ProjectionLab() {
     const focalLabel = createLabel("f", "focal");
     allLabels.add(focalLabel);
     scene.add(allLabels);
+
+    const planeTooltip = createLabel(
+      String.raw`\text{Drag to change focal length}`,
+      "plane-tooltip",
+    );
+    planeTooltip.position.set(1.75, 1.72, INITIAL_FOCAL_LENGTH);
+    planeTooltip.visible = false;
+    scene.add(planeTooltip);
+
+    const planeValue = createLabel(
+      String.raw`f=2.10`,
+      "plane-value",
+    );
+    planeValue.position.set(-1.7, 1.58, INITIAL_FOCAL_LENGTH);
+    planeValue.visible = false;
+    scene.add(planeValue);
 
     const resize = () => {
       const { width, height } = mount.getBoundingClientRect();
@@ -514,13 +522,37 @@ export function ProjectionLab() {
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    let dragMode: "point" | "object" | null = null;
+    let dragMode: "point" | "object" | "plane" | null = null;
     const dragPlane = new THREE.Plane();
     const dragIntersection = new THREE.Vector3();
     const dragOffset = new THREE.Vector3();
     const dragStartCentre = new THREE.Vector3();
     const dragStartPoint = new THREE.Vector3();
     let dragStartY = 0;
+    let planeDragStartAxis = INITIAL_FOCAL_LENGTH;
+    let planeDragStartFocal = INITIAL_FOCAL_LENGTH;
+    let planeHasBeenDragged = false;
+    let tooltipTimer: number | null = null;
+
+    const clearTooltipTimer = () => {
+      if (tooltipTimer !== null) window.clearTimeout(tooltipTimer);
+      tooltipTimer = null;
+    };
+
+    // Find the closest point on the camera-space optical axis to the
+    // observer ray. Changes in this parameter give a view-independent,
+    // one-dimensional plane drag even after orbiting the observer.
+    const axisParameterFromRay = () => {
+      const rayDirection = raycaster.ray.direction;
+      const rayOrigin = raycaster.ray.origin;
+      const axisDirection = new THREE.Vector3(0, 0, 1);
+      const b = rayDirection.dot(axisDirection);
+      const d = rayDirection.dot(rayOrigin);
+      const e = axisDirection.dot(rayOrigin);
+      const denominator = 1 - b * b;
+      if (Math.abs(denominator) < 1e-5) return null;
+      return (e - b * d) / denominator;
+    };
 
     const updatePointer = (event: PointerEvent) => {
       const bounds = renderer.domElement.getBoundingClientRect();
@@ -532,12 +564,27 @@ export function ProjectionLab() {
     const pointerDown = (event: PointerEvent) => {
       updatePointer(event);
       const pointHits = raycaster.intersectObject(worldPointMesh, false);
+      const planeHits = raycaster.intersectObject(imagePlaneHit, false);
       const surfaceHits = raycaster.intersectObject(surface, false);
 
       if (pointHits.length > 0) {
         dragMode = "point";
+        setProjectionFeedback("point");
+      } else if (planeHits.length > 0) {
+        const axisParameter = axisParameterFromRay();
+        if (axisParameter === null) return;
+        dragMode = "plane";
+        planeDragStartAxis = axisParameter;
+        planeDragStartFocal = imagePlane.position.z;
+        clearTooltipTimer();
+        setPlaneTooltipVisible(false);
+        setPlaneHovered(false);
+        setPlaneDragging(true);
+        setPlaneValueVisible(true);
+        setProjectionFeedback("plane");
       } else if (surfaceHits.length > 0) {
         dragMode = "object";
+        setProjectionFeedback("point");
         const viewDirection = camera.getWorldDirection(new THREE.Vector3());
         dragPlane.setFromNormalAndCoplanarPoint(viewDirection, surface.position);
         raycaster.ray.intersectPlane(dragPlane, dragIntersection);
@@ -561,10 +608,39 @@ export function ProjectionLab() {
       if (!dragMode) {
         const overPoint =
           raycaster.intersectObject(worldPointMesh, false).length > 0;
+        const overPlane =
+          !overPoint &&
+          raycaster.intersectObject(imagePlaneHit, false).length > 0;
         const overObject = raycaster.intersectObject(surface, false).length > 0;
-        renderer.domElement.style.cursor =
-          overPoint || overObject ? "pointer" : "grab";
+        renderer.domElement.style.cursor = overPlane
+          ? "ns-resize"
+          : overPoint || overObject
+            ? "grab"
+            : "grab";
         setPointActive(overPoint);
+        setPlaneHovered(overPlane);
+        if (overPlane && !planeHasBeenDragged && tooltipTimer === null) {
+          tooltipTimer = window.setTimeout(() => {
+            setPlaneTooltipVisible(true);
+            tooltipTimer = null;
+          }, 320);
+        } else if (!overPlane) {
+          clearTooltipTimer();
+          setPlaneTooltipVisible(false);
+        }
+        return;
+      }
+
+      if (dragMode === "plane") {
+        const axisParameter = axisParameterFromRay();
+        if (axisParameter !== null) {
+          const nextFocal = THREE.MathUtils.clamp(
+            planeDragStartFocal + axisParameter - planeDragStartAxis,
+            MIN_FOCAL_LENGTH,
+            MAX_FOCAL_LENGTH,
+          );
+          setFocalLength(nextFocal);
+        }
         return;
       }
 
@@ -615,9 +691,28 @@ export function ProjectionLab() {
 
     const finishDrag = (event: PointerEvent) => {
       if (!dragMode) return;
+      const completedMode = dragMode;
       dragMode = null;
       controls.enabled = true;
       setPointActive(false);
+      if (completedMode === "plane") {
+        planeHasBeenDragged = true;
+        setPlaneDragging(false);
+        if (planeValueTimerRef.current !== null) {
+          window.clearTimeout(planeValueTimerRef.current);
+        }
+        planeValueTimerRef.current = window.setTimeout(
+          () => setPlaneValueVisible(false),
+          850,
+        );
+      }
+      if (feedbackTimerRef.current !== null) {
+        window.clearTimeout(feedbackTimerRef.current);
+      }
+      feedbackTimerRef.current = window.setTimeout(
+        () => setProjectionFeedback(null),
+        950,
+      );
       renderer.domElement.classList.remove("is-dragging");
       renderer.domElement.style.cursor = "grab";
       if (renderer.domElement.hasPointerCapture(event.pointerId)) {
@@ -625,16 +720,27 @@ export function ProjectionLab() {
       }
     };
 
+    const resetInteractionSession = () => {
+      planeHasBeenDragged = false;
+      clearTooltipTimer();
+      setPlaneHovered(false);
+      setPlaneDragging(false);
+      setPlaneTooltipVisible(false);
+      setPlaneValueVisible(false);
+      setProjectionFeedback(null);
+    };
+
     renderer.domElement.addEventListener("pointerdown", pointerDown);
     renderer.domElement.addEventListener("pointermove", pointerMove);
     renderer.domElement.addEventListener("pointerup", finishDrag);
     renderer.domElement.addEventListener("pointercancel", finishDrag);
+    renderer.domElement.addEventListener("lostpointercapture", finishDrag);
     window.addEventListener("resize", resize);
 
     resize();
     render();
 
-    sceneRef.current = {
+      sceneRef.current = {
       camera,
       controls,
       renderer,
@@ -643,12 +749,16 @@ export function ProjectionLab() {
       projectedPoint: projectedPointMesh,
       origin,
       imagePlane,
+      imagePlaneHit,
       imagePlaneOutline,
       imageAxes,
       axes,
       surface,
       sightline,
       focalGroup,
+      focalMaterial,
+      planeTooltip,
+      planeValue,
       projectionLabel,
       worldLabel,
       focalLabel,
@@ -656,6 +766,7 @@ export function ProjectionLab() {
       resize,
       render,
       resetView,
+      resetInteractionSession,
       setPointActive,
       pulseProjection,
     };
@@ -663,11 +774,13 @@ export function ProjectionLab() {
     return () => {
       sceneRef.current = null;
       window.cancelAnimationFrame(frame);
+      clearTooltipTimer();
       window.removeEventListener("resize", resize);
       renderer.domElement.removeEventListener("pointerdown", pointerDown);
       renderer.domElement.removeEventListener("pointermove", pointerMove);
       renderer.domElement.removeEventListener("pointerup", finishDrag);
       renderer.domElement.removeEventListener("pointercancel", finishDrag);
+      renderer.domElement.removeEventListener("lostpointercapture", finishDrag);
       controls.dispose();
       renderer.dispose();
       labelRenderer.domElement.remove();
@@ -683,6 +796,7 @@ export function ProjectionLab() {
     handles.worldPoint.position.set(worldPoint.x, worldPoint.y, worldPoint.z);
     handles.projectedPoint.position.set(p.x, p.y, p.z);
     handles.imagePlane.position.z = focalLength;
+    handles.imagePlaneHit.position.z = focalLength;
     handles.imagePlaneOutline.position.z = focalLength;
     handles.imageAxes.position.z = focalLength + 0.004;
     handles.surface.position.set(
@@ -738,6 +852,27 @@ export function ProjectionLab() {
     );
     handles.projectionLabel.position.set(p.x, p.y + 0.34, p.z);
     handles.focalLabel.position.set(-0.6, -0.42, focalLength / 2);
+    handles.planeTooltip.position.z = focalLength + 0.03;
+    handles.planeValue.position.z = focalLength + 0.03;
+    handles.planeValue.element.innerHTML = renderMath(
+      `f=${format(focalLength)}`,
+    );
+
+    const showCoordinates = projectionFeedback !== null;
+    const coordinateMarkup = (
+      values: [number, number, number],
+    ) =>
+      `<span class="scene-coordinate">(${values
+        .map((value) => format(value))
+        .join(", ")})</span>`;
+    handles.worldLabel.element.innerHTML =
+      renderMath(String.raw`\mathbf{P}=(X,Y,Z)`) +
+      (showCoordinates
+        ? coordinateMarkup([worldPoint.x, worldPoint.y, worldPoint.z])
+        : "");
+    handles.projectionLabel.element.innerHTML =
+      renderMath(String.raw`\mathbf{p}=(x,y,f)`) +
+      (showCoordinates ? coordinateMarkup([p.x, p.y, p.z]) : "");
 
     handles.projectedPoint.visible = true;
     handles.sightline.visible = visibility.sightline;
@@ -746,7 +881,55 @@ export function ProjectionLab() {
     objectCentre,
     focalLength,
     projection,
+    projectionFeedback,
     visibility.sightline,
+  ]);
+
+  useEffect(() => {
+    const handles = sceneRef.current;
+    if (!handles) return;
+
+    const planeActive = planeDragging;
+    const planeEngaged = planeActive || planeHovered || planeKeyboardFocus;
+    const isLight = theme === "light";
+    const plane = handles.imagePlane.material as THREE.MeshPhysicalMaterial;
+    plane.opacity = planeActive
+      ? isLight
+        ? 0.19
+        : 0.155
+      : planeEngaged
+        ? isLight
+          ? 0.15
+          : 0.12
+        : isLight
+          ? 0.115
+          : 0.085;
+
+    const outline =
+      handles.imagePlaneOutline.material as THREE.LineBasicMaterial;
+    outline.opacity = planeActive ? 0.72 : planeEngaged ? 0.52 : 0.3;
+    handles.focalMaterial.opacity = planeActive
+      ? 0.78
+      : planeEngaged
+        ? 0.56
+        : 0.34;
+
+    const rayLines = handles.sightline.children as Line2[];
+    (rayLines[0].material as LineMaterial).opacity = planeActive ? 0.18 : 0.12;
+    (rayLines[1].material as LineMaterial).linewidth = planeActive ? 3.25 : 2.7;
+
+    handles.planeTooltip.visible =
+      planeTooltipVisible && !planeDragging;
+    handles.planeValue.visible =
+      visibility.labels && (planeValueVisible || planeKeyboardFocus);
+  }, [
+    planeDragging,
+    planeHovered,
+    planeKeyboardFocus,
+    planeTooltipVisible,
+    planeValueVisible,
+    theme,
+    visibility.labels,
   ]);
 
   useEffect(() => {
@@ -765,7 +948,6 @@ export function ProjectionLab() {
     const structure = isLight ? 0x252a26 : 0xeceee9;
     const plane = handles.imagePlane.material as THREE.MeshPhysicalMaterial;
     plane.color.setHex(isLight ? 0x64706a : 0x303a3a);
-    plane.opacity = isLight ? 0.115 : 0.085;
 
     const originMaterial = handles.origin.material as THREE.MeshBasicMaterial;
     originMaterial.color.setHex(isLight ? 0x1b1f1c : 0xf5f5f0);
@@ -775,16 +957,144 @@ export function ProjectionLab() {
     ).color.setHex(structure);
   }, [theme]);
 
+  useEffect(
+    () => () => {
+      if (feedbackTimerRef.current !== null) {
+        window.clearTimeout(feedbackTimerRef.current);
+      }
+      if (planeValueTimerRef.current !== null) {
+        window.clearTimeout(planeValueTimerRef.current);
+      }
+      if (resetFrameRef.current !== null) {
+        window.cancelAnimationFrame(resetFrameRef.current);
+      }
+    },
+    [],
+  );
+
   const toggle = (key: keyof VisibilityState) => {
     setVisibility((current) => ({ ...current, [key]: !current[key] }));
   };
 
+  const scheduleProjectionFeedbackHide = () => {
+    if (feedbackTimerRef.current !== null) {
+      window.clearTimeout(feedbackTimerRef.current);
+    }
+    feedbackTimerRef.current = window.setTimeout(
+      () => setProjectionFeedback(null),
+      950,
+    );
+    if (planeValueTimerRef.current !== null) {
+      window.clearTimeout(planeValueTimerRef.current);
+    }
+    planeValueTimerRef.current = window.setTimeout(
+      () => setPlaneValueVisible(false),
+      850,
+    );
+  };
+
+  const beginKeyboardPlaneFeedback = () => {
+    setHasInteracted(true);
+    setProjectionFeedback("plane");
+    setPlaneValueVisible(true);
+    scheduleProjectionFeedbackHide();
+  };
+
+  const handlePlaneKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    const isDecrease = event.key === "ArrowLeft" || event.key === "ArrowDown";
+    const isIncrease = event.key === "ArrowRight" || event.key === "ArrowUp";
+    if (!isDecrease && !isIncrease && event.key !== "Home") return;
+
+    event.preventDefault();
+    const step = event.shiftKey ? FOCAL_STEP * 5 : FOCAL_STEP;
+    const nextFocal =
+      event.key === "Home"
+        ? INITIAL_FOCAL_LENGTH
+        : THREE.MathUtils.clamp(
+            focalLength + (isIncrease ? step : -step),
+            MIN_FOCAL_LENGTH,
+            MAX_FOCAL_LENGTH,
+          );
+    setFocalLength(nextFocal);
+    beginKeyboardPlaneFeedback();
+  };
+
   const reset = () => {
-    setWorldPoint(INITIAL_POINT);
-    setObjectCentre(INITIAL_OBJECT_CENTRE);
-    setFocalLength(INITIAL_FOCAL_LENGTH);
     setHasInteracted(false);
+    setPlaneKeyboardFocus(false);
+    sceneRef.current?.resetInteractionSession();
     sceneRef.current?.resetView();
+
+    if (resetFrameRef.current !== null) {
+      window.cancelAnimationFrame(resetFrameRef.current);
+    }
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    if (reducedMotion) {
+      setWorldPoint(INITIAL_POINT);
+      setObjectCentre(INITIAL_OBJECT_CENTRE);
+      setFocalLength(INITIAL_FOCAL_LENGTH);
+      return;
+    }
+
+    const startedAt = performance.now();
+    const startCentre = { ...objectCentre };
+    const startFocal = focalLength;
+    const startDirection = new THREE.Vector3(
+      worldPoint.x - objectCentre.x,
+      worldPoint.y - objectCentre.y,
+      worldPoint.z - objectCentre.z,
+    ).normalize();
+    const targetDirection = new THREE.Vector3(
+      INITIAL_POINT.x - INITIAL_OBJECT_CENTRE.x,
+      INITIAL_POINT.y - INITIAL_OBJECT_CENTRE.y,
+      INITIAL_POINT.z - INITIAL_OBJECT_CENTRE.z,
+    ).normalize();
+
+    const animateReset = (now: number) => {
+      const progress = Math.min((now - startedAt) / 620, 1);
+      const eased = 1 - Math.pow(1 - progress, 4);
+      const centre = {
+        x: THREE.MathUtils.lerp(
+          startCentre.x,
+          INITIAL_OBJECT_CENTRE.x,
+          eased,
+        ),
+        y: THREE.MathUtils.lerp(
+          startCentre.y,
+          INITIAL_OBJECT_CENTRE.y,
+          eased,
+        ),
+        z: THREE.MathUtils.lerp(
+          startCentre.z,
+          INITIAL_OBJECT_CENTRE.z,
+          eased,
+        ),
+      };
+      const direction = startDirection
+        .clone()
+        .lerp(targetDirection, eased)
+        .normalize()
+        .multiplyScalar(OBJECT_RADIUS);
+
+      setObjectCentre(centre);
+      setWorldPoint({
+        x: centre.x + direction.x,
+        y: centre.y + direction.y,
+        z: centre.z + direction.z,
+      });
+      setFocalLength(
+        THREE.MathUtils.lerp(startFocal, INITIAL_FOCAL_LENGTH, eased),
+      );
+
+      if (progress < 1) {
+        resetFrameRef.current = window.requestAnimationFrame(animateReset);
+      } else {
+        resetFrameRef.current = null;
+      }
+    };
+    resetFrameRef.current = window.requestAnimationFrame(animateReset);
   };
 
   const projected = projection.valid
@@ -808,7 +1118,7 @@ export function ProjectionLab() {
           <p
             className={`interaction-hint${hasInteracted ? " is-muted" : ""}`}
           >
-            Drag the point to move it. Shift-drag to orbit.
+            Drag the point or image plane. Drag the background to orbit.
           </p>
         </div>
         <div className="header-actions">
@@ -833,36 +1143,41 @@ export function ProjectionLab() {
         aria-label="Interactive three-dimensional pinhole-camera projection scene"
       />
 
-      <aside className="readout" aria-label="Projection equation and coordinates">
-        <div className="readout-title">
-          Live projection <span className="status-dot" aria-hidden="true" />
-        </div>
-        <p className="formula">
-          <MathText
-            expression={String.raw`x=f\frac{X}{Z},\qquad y=f\frac{Y}{Z}`}
-          />
-        </p>
-        <dl className="coordinates">
-          <div className="coordinate-row">
-            <dt>
-              <MathText expression={String.raw`\mathbf{P}`} />
-            </dt>
-            <dd>
-              ({format(worldPoint.x)}, {format(worldPoint.y)},{" "}
-              {format(worldPoint.z)})
-            </dd>
-          </div>
-          <div className="coordinate-row">
-            <dt>
-              <MathText expression={String.raw`\mathbf{p}`} />
-            </dt>
-            <dd>
-              ({format(projected.x)}, {format(projected.y)},{" "}
-              {format(projected.z)})
-            </dd>
-          </div>
-        </dl>
-      </aside>
+      <input
+        className="plane-accessibility-control"
+        type="range"
+        min={MIN_FOCAL_LENGTH}
+        max={MAX_FOCAL_LENGTH}
+        step={FOCAL_STEP}
+        value={focalLength}
+        aria-label="Focal length"
+        aria-valuetext={`${format(focalLength)} scene units`}
+        onFocus={() => {
+          setPlaneKeyboardFocus(true);
+          setProjectionFeedback("plane");
+          setPlaneValueVisible(true);
+        }}
+        onBlur={() => {
+          setPlaneKeyboardFocus(false);
+          scheduleProjectionFeedbackHide();
+        }}
+        onKeyDown={handlePlaneKeyDown}
+        onChange={(event) => {
+          setFocalLength(Number(event.target.value));
+          beginKeyboardPlaneFeedback();
+        }}
+      />
+
+      <div
+        className={`context-equation${
+          projectionFeedback !== null && visibility.labels ? " is-visible" : ""
+        }`}
+        aria-hidden={projectionFeedback === null || !visibility.labels}
+      >
+        <MathText
+          expression={String.raw`x=f\frac{X}{Z},\qquad y=f\frac{Y}{Z}`}
+        />
+      </div>
 
       <section className="control-dock" aria-label="Visualization controls">
         <div className="toggle-group" aria-label="Visible geometry">
@@ -881,20 +1196,6 @@ export function ProjectionLab() {
               </button>
             ),
           )}
-        </div>
-        <div className="slider-panel">
-          <Slider
-            symbol="f"
-            label="Focal length"
-            value={focalLength}
-            min={0.8}
-            max={3.2}
-            step={0.05}
-            onChange={(value) => {
-              setHasInteracted(true);
-              setFocalLength(value);
-            }}
-          />
         </div>
       </section>
 

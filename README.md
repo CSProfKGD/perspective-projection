@@ -15,8 +15,10 @@ y=f\frac{Y}{Z}.
 - Drag the yellow point, \(P\), to move it across the blue object's surface.
 - Drag the blue object to translate it while carrying \(P\).
 - Shift-drag the blue object to move it in depth.
+- Drag the image plane along the optical axis to change focal length.
 - Drag empty scene space to orbit and scroll to zoom.
-- Use the focal-length slider for precise or keyboard-accessible focal control.
+- Focus the image plane’s accessible control to adjust focal length with the
+  arrow keys; Shift uses a larger step and Home restores the default.
 - Toggle axes, labels, and the sightline or switch between dark and light
   themes.
 

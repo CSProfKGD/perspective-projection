@@ -18,7 +18,7 @@ The scene contains:
 - The projected point, \(\mathbf{p}=(x,y,f)\), on the physical image plane.
 - One continuous projection line spanning \(\mathbf{P}\), \(o\), and \(\mathbf{p}\).
 - A visible focal-length interval from the camera centre to the image plane.
-- Concise mathematical labels and live coordinate values for the important objects.
+- Concise mathematical labels and temporary contextual equations and coordinate values during manipulation.
 - A restrained blue spherical scene object whose surface contains \(\mathbf{P}\). The object constrains point manipulation but does not otherwise participate in the projection calculation.
 
 The initial view shows the complete construction from an oblique angle so that the world point, camera centre, image plane, optical axis, and image inversion are all visible. The 3D scene remains the dominant surface.
@@ -28,7 +28,7 @@ The user can:
 - Orbit, pan, and zoom the observer view without changing the mathematical camera.
 - Drag \(\mathbf{P}\) across the blue object's surface; ray-surface intersection keeps it on the object while all dependent geometry and live values update continuously.
 - Drag the blue object itself to translate it through 3D while carrying \(\mathbf{P}\) with it. Shift-drag controls depth.
-- Adjust the positive focal length, \(f\), and see the image plane and projection move consistently.
+- Drag the physical image plane along the optical axis to adjust the positive focal length, \(f\), and see the projection move consistently.
 - Toggle logical groups such as axes, projection geometry, and labels.
 - Switch between the dark default and an accessible light theme.
 
@@ -104,7 +104,7 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 - Use blue for the contextual scene surface near \(\mathbf{P}\). Keep its lighting soft, moderately rough, and subordinate to the projection construction.
 - Render the physical image plane as low-opacity dark glass with faint cool-neutral edges and centre guides rather than a large solid region.
 - Keep the focal-length marker and interval visually tied to \(f\) without turning it into a large control overlay.
-- Use one compact translucent control card for visibility toggles and the focal-length slider, and one quiet live-projection card with tabular coordinate values.
+- Use one compact translucent control pill for visibility toggles. Keep equations, focal-length values, and coordinates contextual and temporary rather than placing them in permanent cards.
 - Typeset variables in standard mathematical notation, including italic variables and bold vector names where explanatory text distinguishes vectors.
 - Render mathematical symbols and expressions from LaTeX with KaTeX rather than assembling notation from Unicode glyphs.
 - Keep labels readable against surfaces and prevent avoidable overlap while the observer camera moves.
@@ -120,7 +120,8 @@ The light theme should preserve the same semantic colour roles and adequate cont
 - Dragging \(\mathbf{P}\) temporarily owns the pointer until release or cancellation so that the scene cannot orbit accidentally during the same gesture.
 - Dragging the blue object translates it in an observer-facing plane; Shift-drag translates it in depth. The world point moves by the same displacement and remains on the object.
 - Point manipulation must use ray-surface intersection so \(\mathbf{P}\) remains on the fixed blue object while supporting meaningful changes in transverse position and depth.
-- The focal-length slider is the only numeric slider in the first milestone. It must expose a finite, positive range and display the current value with units or normalized scene units.
+- The image plane is the focal-length control. Pointer dragging must constrain it to the optical axis within a finite positive range, and a visually hidden native range control must provide equivalent keyboard access without reintroducing a visible slider.
+- Image-plane hover and drag states must make the direct manipulation discoverable, suppress observer orbit during the gesture, and show only temporary focal-length and equation feedback.
 - Essential controls use native, keyboard-operable elements with accessible names and visible focus.
 - Touch targets must be large enough to operate reliably, and control groups must reflow instead of causing horizontal page scrolling.
 - Provide a concise accessible description or status that reports the current world point, focal length, projected point, and invalid state without attempting to duplicate the full spatial experience in prose.
