@@ -1414,7 +1414,7 @@ export function ProjectionLab() {
       <header className="lab-header">
         <div className="lab-title-block">
           <h1>Perspective projection</h1>
-          <p className="lab-subtitle">One point. One ray. One image.</p>
+          <p className="lab-subtitle">One point. One ray. One Image.</p>
         </div>
         <div className="header-actions">
           <button className="text-button reset-button" type="button" onClick={reset}>
