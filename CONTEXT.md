@@ -99,7 +99,7 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 - Follow a restrained product-demo hierarchy: the world point is primary, followed by the continuous green projection line, projected point, glass-like image plane, camera centre, reference axes, and finally the interface.
 - Draw axes, the optical axis, image-plane outlines, brackets, and mathematical labels primarily in white in dark mode and deep charcoal in light mode.
 - Use green for the projection line, matching the reference diagram. Give it the strongest geometric line weight with only a restrained soft halo; construction and reference lines must recede.
-- Use a polished warm yellow for \(\mathbf{P}\) and \(\mathbf{p}\), differentiating them through size, position, and labels as well as colour. Show a subtle active halo for direct manipulation and a brief, non-looping projected-point pulse after meaningful changes.
+- Use a polished warm yellow for \(\mathbf{P}\) and \(\mathbf{p}\), differentiating them through size, position, and labels as well as colour. Keep the projected marker at a stable screen size as focal length and observer distance change; do not pulse or resize it when projection values update.
 - Use blue for the contextual scene surface near \(\mathbf{P}\). Keep its lighting soft, moderately rough, and subordinate to the projection construction.
 - Render the physical image plane as low-opacity dark glass with faint cool-neutral edges and centre guides rather than a large solid region.
 - Communicate focal length through direct image-plane motion and temporary manipulation feedback rather than a permanent bracket or standalone \(f\) label.
@@ -110,6 +110,7 @@ The first milestone keeps \(\mathbf{P}\) in the visible half-space and \(f\) in 
 - Preserve depth cues with opacity, line weight, depth ordering, and restrained lighting. Avoid decorative textures, heavy panels, excessive glow, or gratuitous colour.
 - Use short easing only where it clarifies a state change, such as a projection updating after a focal-length adjustment. Do not add perpetual motion.
 - When Axes, Labels, or Ray visibility is toggled, dissolve the affected scene elements smoothly in or out rather than switching them abruptly.
+- Crossfade between dark and light themes as one restrained presentation transition so the page chrome, labels, lighting, and 3D scene change together rather than flashing between palettes.
 - Respect reduced-motion preferences by making nonessential transitions effectively immediate.
 
 The light theme should preserve the same semantic colour roles and use a presentation-led, Apple Keynote-like finish: a warm near-white canvas, crisp graphite structure and notation, restrained translucent white controls, a clear botanical-green projection line, a refined medium-blue object, and darker amber notation with gold markers. Every axis and plane guide must remain legible against both the canvas and translucent image plane.

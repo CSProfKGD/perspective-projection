@@ -48,6 +48,7 @@
 
 html {
   background: var(--bg);
+  transition: background-color 260ms ease;
 }
 
 body {
@@ -57,6 +58,15 @@ body {
   color: var(--text);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 260ms ease,
+    color 220ms ease;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 button,
@@ -91,8 +101,8 @@ input:focus-visible {
     ),
     var(--bg);
   transition:
-    background-color 180ms ease,
-    color 180ms ease;
+    background 260ms ease,
+    color 220ms ease;
 }
 
 [data-theme="light"].lab-shell {
@@ -238,6 +248,11 @@ h1 {
   font-size: 1.05rem;
   white-space: nowrap;
   backdrop-filter: blur(4px);
+  transition:
+    background-color 240ms ease,
+    border-color 240ms ease,
+    box-shadow 240ms ease,
+    color 220ms ease;
 }
 
 [data-theme="light"] .scene-label {
@@ -429,6 +444,11 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms;
+  }
+
   .scene-label {
     transition-duration: 0.01ms;
   }

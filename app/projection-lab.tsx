@@ -2,11 +2,13 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent,
 } from "react";
+import { flushSync } from "react-dom";
 import katex from "katex";
 import * as THREE from "three";
 import {
@@ -63,7 +65,12 @@ type SceneHandles = {
   resetInteractionSession: () => void;
   setVisibilityTargets: (visibility: VisibilityState) => void;
   setPointActive: (active: boolean) => void;
-  pulseProjection: () => void;
+};
+
+type ThemeTransitionDocument = Document & {
+  startViewTransition?: (update: () => void) => {
+    finished: Promise<void>;
+  };
 };
 
 const INITIAL_OBJECT_CENTRE: Vector3Data = { x: 1.8, y: 0.2, z: -6.6 };
@@ -130,7 +137,6 @@ function createLabel(expression: string, className = "") {
 export function ProjectionLab() {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<SceneHandles | null>(null);
-  const previousProjectedRef = useRef<Vector3Data | null>(null);
   const [worldPoint, setWorldPoint] = useState<Vector3Data>(INITIAL_POINT);
   const [objectCentre, setObjectCentre] = useState<Vector3Data>(
     INITIAL_OBJECT_CENTRE,
@@ -436,10 +442,12 @@ export function ProjectionLab() {
           fromTarget: THREE.Vector3;
         }
       | null = null;
-    let projectedPulseUntil = 0;
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+    const projectedPointReferenceDistance = defaultCamera.distanceTo(
+      new THREE.Vector3(0, 0, INITIAL_FOCAL_LENGTH),
+    );
     type DissolveState = {
       current: number;
       from: number;
@@ -530,10 +538,6 @@ export function ProjectionLab() {
         active ? 0.18 : 0.12;
     };
 
-    const pulseProjection = () => {
-      if (!reducedMotion) projectedPulseUntil = performance.now() + 230;
-    };
-
     let frame = 0;
     const render = () => {
       const now = performance.now();
@@ -579,13 +583,10 @@ export function ProjectionLab() {
         );
         if (progress >= 1) cameraTween = null;
       }
-      if (projectedPulseUntil > now) {
-        const phase = 1 - (projectedPulseUntil - now) / 230;
-        const scale = 1 + Math.sin(phase * Math.PI) * 0.42;
-        projectedPointMesh.scale.setScalar(scale);
-      } else {
-        projectedPointMesh.scale.setScalar(1);
-      }
+      const projectedPointScale =
+        camera.position.distanceTo(projectedPointMesh.position) /
+        projectedPointReferenceDistance;
+      projectedPointMesh.scale.setScalar(projectedPointScale);
       pointHalo.position.copy(worldPointMesh.position);
       controls.update();
       renderer.render(scene, camera);
@@ -825,7 +826,6 @@ export function ProjectionLab() {
       resetInteractionSession,
       setVisibilityTargets,
       setPointActive,
-      pulseProjection,
     };
 
     return () => {
@@ -874,19 +874,6 @@ export function ProjectionLab() {
       (line.geometry as LineGeometry).setPositions(rayPositions);
       line.computeLineDistances();
     });
-
-    const previousProjected = previousProjectedRef.current;
-    if (
-      previousProjected &&
-      Math.hypot(
-        p.x - previousProjected.x,
-        p.y - previousProjected.y,
-        p.z - previousProjected.z,
-      ) > 0.075
-    ) {
-      handles.pulseProjection();
-    }
-    previousProjectedRef.current = { x: p.x, y: p.y, z: p.z };
 
     handles.worldLabel.position.set(
       worldPoint.x,
@@ -981,7 +968,7 @@ export function ProjectionLab() {
     handles.setVisibilityTargets(visibility);
   }, [visibility]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const handles = sceneRef.current;
     if (!handles) return;
     const isLight = theme === "light";
@@ -1073,6 +1060,23 @@ export function ProjectionLab() {
 
   const toggle = (key: keyof VisibilityState) => {
     setVisibility((current) => ({ ...current, [key]: !current[key] }));
+  };
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const transitionDocument = document as ThemeTransitionDocument;
+
+    if (reducedMotion || !transitionDocument.startViewTransition) {
+      setTheme(nextTheme);
+      return;
+    }
+
+    transitionDocument.startViewTransition(() => {
+      flushSync(() => setTheme(nextTheme));
+    });
   };
 
   const schedulePlaneValueHide = () => {
@@ -1209,7 +1213,7 @@ export function ProjectionLab() {
             className="icon-button"
             type="button"
             aria-label={`Use ${theme === "dark" ? "light" : "dark"} theme`}
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onClick={toggleTheme}
           >
             <span aria-hidden="true">{theme === "dark" ? "☼" : "◐"}</span>
           </button>
